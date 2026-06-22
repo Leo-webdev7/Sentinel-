@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -5,6 +6,31 @@ export default defineConfig({
   plugins: [react()],
   define: {
     global: 'globalThis',
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    css: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/main.jsx',
+        'src/index.css',
+        'src/test/**',
+        'src/**/*.test.*',
+        'src/**/*.spec.*',
+        'src/data/**',
+      ],
+      thresholds: {
+        statements: 10,
+        branches: 10,
+        functions: 10,
+        lines: 10,
+      },
+    },
   },
   build: {
     target: 'esnext',
