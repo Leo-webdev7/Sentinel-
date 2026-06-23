@@ -37,11 +37,21 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-mapbox': ['mapbox-gl', 'react-map-gl'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-utils': ['date-fns', 'lucide-react'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            if (id.includes('mapbox-gl') || id.includes('react-map-gl')) {
+              return 'vendor-mapbox';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('date-fns') || id.includes('lucide-react')) {
+              return 'vendor-utils';
+            }
+          }
         },
       },
     },
