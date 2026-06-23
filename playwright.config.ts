@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   workers: process.env.CI ? 2 : undefined,
   reporter: 'html',
   use: {
@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? 'npx vite preview --port 3000' : 'npm run dev',
+    command: process.env.CI ? 'npx serve dist -l 3000 -s' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: process.env.CI ? 60000 : 30000,
