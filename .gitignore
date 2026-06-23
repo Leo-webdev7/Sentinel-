@@ -6,3 +6,5 @@ coverage/
 .DS_Store
 supabase/.temp/
 .env
+playwright-report/
+test-results/
