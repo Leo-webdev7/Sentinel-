@@ -101,7 +101,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   criticalInfrastructure: false,
   schoolsUniversities: false,
   nhcTropicalWeather: false,
-  nhcStorms: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -464,14 +463,14 @@ const flightBounds = useMemo(() => {
     fireWxOutlookType
   );
 
+  const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
   const {
     centersGeoJSON: nhcCentersGeoJSON,
     conesGeoJSON:   nhcConesGeoJSON,
     tracksGeoJSON:  nhcTracksGeoJSON,
     refresh:        refreshNhcStorms,
-  } = useNhcStorms(weatherDataEnabled && layers.nhcStorms);
+  } = useNhcStorms(nhcTropicalWeatherEnabled);
 
-  const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
   const {
     trackGeoJSON: nhcTrackGeoJSON,
     observedTrackGeoJSON: nhcObservedTrackGeoJSON,
@@ -755,8 +754,10 @@ const flightBounds = useMemo(() => {
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
-    if (weatherDataEnabled && layers.nhcStorms) refreshNhcStorms();
-    if (nhcTropicalWeatherEnabled) refreshNhcTropicalWeather();
+    if (nhcTropicalWeatherEnabled) {
+      refreshNhcStorms();
+      refreshNhcTropicalWeather();
+    }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
@@ -767,7 +768,6 @@ const flightBounds = useMemo(() => {
     refreshNhcTropicalWeather,
     activeMapTab, weatherDataEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
-    layers.nhcStorms,
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
     schoolsLayerEnabled,
@@ -881,7 +881,7 @@ const flightBounds = useMemo(() => {
             href="https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header"
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute bottom-8 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
+            className="bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
             title="Report a bug"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
