@@ -37,7 +37,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-      - run: npm run test:e2e -- --grep "Red Flag Warning"
+      - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:

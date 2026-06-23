@@ -236,7 +236,6 @@ test.describe('Red Flag Warning Banner – Dismiss', () => {
     await expect(page.getByRole('button', { name: /dismiss alert banner/i })).not.toBeVisible();
     // Switch to weather tab — alerts should still be in the sidebar
     await page.getByRole('button', { name: /weather/i }).first().click();
-    await page.waitForTimeout(500);
     await expect(page.locator('text=Red Flag Warning').first()).toBeVisible();
   });
 });
@@ -245,7 +244,6 @@ test.describe('Red Flag Warning Banner – Click to Detail', () => {
   test('clicking the headline opens the alert detail panel', async ({ page }) => {
     await goToTracker(page, [toNWSFeature(MOCK_RFW_1)]);
     await page.getByText('NWS Tallahassee FL').first().click();
-    await page.waitForTimeout(500);
     // Detail panel should open — look for the selected alert's headline
     await expect(
       page.locator('text=Red Flag Warning issued April 8 at 10:13AM EDT').first()
