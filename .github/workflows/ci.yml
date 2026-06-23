@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches-ignore: [Main]
+    branches: [prod]
   pull_request:
-    branches-ignore: [Main]
+    branches: [prod]
 
 jobs:
   lint:
