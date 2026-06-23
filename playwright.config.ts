@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  retries: 0,
+  workers: process.env.CI ? 2 : undefined,
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
@@ -19,9 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: process.env.CI ? 'npx serve dist -l 3000 -s' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 30000,
+    timeout: process.env.CI ? 60000 : 30000,
   },
 });
