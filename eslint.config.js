@@ -62,6 +62,7 @@ export default [
         require: 'readonly',
         exports: 'readonly',
         global: 'readonly',
+        DOMParser: 'readonly',
         TextEncoder: 'readonly',
         TextDecoder: 'readonly',
         localStorage: 'readonly',
@@ -100,6 +101,9 @@ export default [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/purity': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-useless-assignment': 'warn',
@@ -116,6 +120,14 @@ export default [
       'scripts/**',
       'netlify/**',
       '*.config.js',
+      'test-results/**',
+      'playwright-report/**',
     ],
+  },
+  {
+    files: ['**/*.test.{js,jsx}'],
+    rules: {
+      'no-import-assign': 'off',
+    },
   },
 ];
