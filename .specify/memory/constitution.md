@@ -1,15 +1,13 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0 (Minor: new workflow guidance)
+Version change: 1.1.0 → 1.2.0 (Minor: new principle)
 Modified principles:
-  - II. Clean Sharing Protocol → II. Clean Sharing Protocol (expanded)
-  - III. Squashed Commits → III. Squashed Commits for Completed Work (expanded)
-  - IV. Branch Hygiene → IV. Branch Hygiene & Privacy Boundaries (expanded)
+  - V. Commit Integrity & Atomicity (expanded)
 Added sections:
-  - VI. Release Branch Protocol (new principle)
-  - Branch Naming Convention (under Repository Workflow)
-  - Pull Request Protocol (under Repository Workflow)
+  - VII. CI/CD Pipeline Requirements (new principle)
+  - Pull Request Pipeline (under Repository Workflow)
+  - Main Branch Pipeline (under Repository Workflow)
 Removed sections: N/A
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ (Constitution Check section aligns)
@@ -117,6 +115,40 @@ The path from private work to shared code follows a strict protocol:
 
 This protocol ensures clean, reviewable history in the public repository.
 
+### VII. CI/CD Pipeline Requirements
+
+All code entering the `Main` branch MUST pass through automated quality
+gates. Two distinct pipelines enforce this requirement:
+
+#### Pull Request Pipeline
+
+When a PR is opened targeting `Main`, the following checks MUST pass
+before merge is permitted:
+1. **Lint**: Code style and static analysis
+2. **Build**: Successful production build
+3. **Tests**: All unit and integration tests pass
+4. **E2E Tests**: End-to-end validation completes successfully
+
+If ANY check fails, the PR MUST NOT be merged until the issue is resolved.
+This pipeline serves as a security gate protecting the main branch.
+
+#### Main Branch Pipeline
+
+When code is merged to `Main`, the following steps execute:
+1. **Lint**: Code style and static analysis
+2. **Build**: Successful production build
+3. **Tests**: All unit and integration tests pass
+4. **E2E Tests**: End-to-end validation completes successfully
+5. **Deploy**: Publish to Netlify production environment
+
+#### Implementation Requirements
+
+- Pipelines MUST be implemented as GitHub Actions workflows
+- Workflow files MUST be stored in `.github/workflows/`
+- Netlify credentials MUST be stored securely in GitHub Secrets
+- Secrets MUST NOT be hardcoded or logged in workflow output
+- Pipeline configuration MUST be version-controlled alongside code
+
 ## Repository Workflow
 
 ### Dual-Remote Architecture
@@ -155,6 +187,9 @@ This convention ensures clear ownership and purpose for shared branches.
 3. **Create Release Branch**: Branch named `<type>/<name>-<nickname>` created
 4. **Clean & Squash**: All private artifacts removed, work squashed to one commit
 5. **Push & PR**: Branch pushed to `origin`, PR opened against `Main`
+6. **CI/CD Gate**: PR must pass lint, build, test, and E2E checks
+7. **Human Review**: PR reviewed and approved by human
+8. **Merge & Deploy**: Merge triggers main branch pipeline and deployment
 
 ### Pull Request Protocol
 
@@ -162,6 +197,7 @@ When opening a pull request:
 - PR MUST target the `Main` branch of `origin`
 - PR MUST NOT be merged automatically or by AI
 - PR MUST receive human review and approval before merge
+- PR MUST pass all CI/CD pipeline checks before merge
 - PR description MUST be clean and professional
 - PR MUST NOT contain references to private context or tooling
 
@@ -172,6 +208,7 @@ When opening a pull request:
 - Never include private notes, tooling files, or AI artifacts in shared commits
 - Always verify commit content before sharing
 - Use interactive rebase to clean commit history before sharing
+- Never bypass CI/CD pipeline checks
 
 ## Governance
 
@@ -192,6 +229,7 @@ Sentinel project. All development activity MUST comply with these principles.
 - All pull requests MUST be reviewed for privacy compliance before merge
 - Commit history MUST be inspected for accidental private data inclusion
 - Branch names and commit messages MUST adhere to naming conventions
+- CI/CD pipeline results MUST be verified before merge
 - Regular audits of shared branches ensure ongoing compliance
 
 ### Enforcement
@@ -201,4 +239,4 @@ Violations of privacy boundaries require immediate remediation:
 - Rotate any exposed credentials or private artifacts
 - Document the incident and update procedures as needed
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
+**Version**: 1.2.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
