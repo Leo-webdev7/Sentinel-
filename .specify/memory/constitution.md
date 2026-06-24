@@ -1,13 +1,15 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.0 → 1.2.0 (Minor: new principle)
+Version change: 1.3.0 → 1.4.0 (Minor: new principle)
 Modified principles:
-  - V. Commit Integrity & Atomicity (expanded)
+  - VIII. Testing Discipline (expanded)
 Added sections:
-  - VII. CI/CD Pipeline Requirements (new principle)
-  - Pull Request Pipeline (under Repository Workflow)
-  - Main Branch Pipeline (under Repository Workflow)
+  - IX. Technical Constraints & Decision Framework (new principle)
+  - Legacy Code Policy (under IX)
+  - Library Management (under IX)
+  - Technical Decision Protocol (under IX)
+  - Platform Constraints (under IX)
 Removed sections: N/A
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ (Constitution Check section aligns)
@@ -127,7 +129,8 @@ before merge is permitted:
 1. **Lint**: Code style and static analysis
 2. **Build**: Successful production build
 3. **Tests**: All unit and integration tests pass
-4. **E2E Tests**: End-to-end validation completes successfully
+4. **Coverage**: Test coverage meets minimum threshold for affected areas
+5. **E2E Tests**: End-to-end validation completes successfully
 
 If ANY check fails, the PR MUST NOT be merged until the issue is resolved.
 This pipeline serves as a security gate protecting the main branch.
@@ -141,6 +144,9 @@ When code is merged to `Main`, the following steps execute:
 4. **E2E Tests**: End-to-end validation completes successfully
 5. **Deploy**: Publish to Netlify production environment
 
+Note: Coverage checks are NOT required on the main branch pipeline.
+Coverage is enforced at the PR stage only.
+
 #### Implementation Requirements
 
 - Pipelines MUST be implemented as GitHub Actions workflows
@@ -148,6 +154,122 @@ When code is merged to `Main`, the following steps execute:
 - Netlify credentials MUST be stored securely in GitHub Secrets
 - Secrets MUST NOT be hardcoded or logged in workflow output
 - Pipeline configuration MUST be version-controlled alongside code
+
+### VIII. Testing Discipline
+
+Quality assurance through testing is mandatory for feature work.
+Every feature MUST include tests unless explicitly exempted.
+
+#### Test Coverage Requirements
+
+- All feature code MUST have corresponding tests
+- Minimum coverage threshold: **70% of code branches** for the
+  affected feature area
+- Coverage is measured at the feature/PR scope, not globally
+- Tests MUST be included in the same PR as the feature code
+
+#### When Coverage is Checked
+
+- Coverage is checked during the **PR pipeline only**
+- Coverage is NOT required for main branch pipeline merges
+- PR MUST NOT be merged if coverage falls below the threshold
+- Coverage reports SHOULD be visible in PR comments
+
+#### Coverage Exemptions
+
+The following types of changes are exempt from test coverage requirements:
+- Build pipeline and CI/CD configuration changes
+- Infrastructure and deployment configuration
+- Documentation-only changes
+- Dependency updates and version bumps
+- Linting and formatting configuration
+
+These exemptions exist because such changes do not affect application
+logic and do not introduce functional risk.
+
+#### Test Placement
+
+- Unit tests: Co-located with source files or in `tests/unit/`
+- Integration tests: In `tests/integration/`
+- E2E tests: In `e2e/` directory
+- Test naming: Match the feature or module being tested
+
+### IX. Technical Constraints & Decision Framework
+
+Technical decisions MUST respect established constraints and follow
+a clear decision protocol. This ensures consistency, stability, and
+cost-effectiveness throughout the project.
+
+#### Legacy Code Policy
+
+Code created before **June 22, 2026** is considered legacy code.
+Legacy code is subject to the following restrictions:
+
+- MUST NOT be refactored unless explicitly requested by the user
+- MUST NOT be restructured or reorganized without user approval
+- MUST NOT undergo architectural changes unless necessary for new features
+- MUST be treated as stable, working code that requires minimal intervention
+
+When working on features that touch legacy code, prefer additive changes
+over modifications to existing structures. New code should be isolated
+and not require changes to legacy implementations.
+
+#### Library Management
+
+Dependencies MUST be managed conservatively to minimize bloat:
+
+- MUST NOT add new libraries without considering existing alternatives
+- MUST prefer using libraries already present in the project
+- MUST justify any new dependency with clear technical rationale
+- MUST evaluate bundle size impact before adding client-side libraries
+
+Before adding a new library:
+1. Check if existing libraries can solve the problem
+2. Evaluate if the functionality can be implemented simply
+3. Consider the long-term maintenance burden
+4. Assess impact on bundle size and performance
+
+#### Technical Decision Protocol
+
+When a technical decision presents multiple viable options, the
+following protocol MUST be followed:
+
+1. **Identify the Fork**: Clearly state that a technical decision
+   point has been reached
+2. **Present Options**: List all viable technical approaches
+3. **Explain Consequences**: For each option, describe:
+   - Technical benefits and drawbacks
+   - Implementation complexity
+   - Long-term maintenance implications
+   - Cost implications (if applicable)
+4. **Await User Decision**: MUST NOT proceed until the user chooses
+   an approach and acknowledges the consequences
+
+This protocol ensures informed decision-making and prevents
+unintended architectural direction.
+
+#### Platform Constraints (Netlify Free Tier)
+
+The project MUST operate within Netlify's Free Tier limits unless
+the user explicitly approves otherwise.
+
+When making implementation decisions:
+- MUST prefer Netlify-native features when available
+- MUST stay within Free Tier resource limits
+- MUST clearly disclose when a solution requires paid features
+
+**Free Tier Boundaries** (as of June 2026):
+- 100 GB bandwidth per month
+- 300 build minutes per month
+- 1 concurrent build
+- Serverless functions: 125K invocations/month
+- Edge functions: 3M invocations/month
+- Forms: 100 submissions/month
+- Identity: 1,000 monthly active users
+- Blobs: 1 GB storage
+
+When a solution would exceed these limits, the user MUST be informed
+before proceeding with implementation.
 
 ## Repository Workflow
 
@@ -187,7 +309,7 @@ This convention ensures clear ownership and purpose for shared branches.
 3. **Create Release Branch**: Branch named `<type>/<name>-<nickname>` created
 4. **Clean & Squash**: All private artifacts removed, work squashed to one commit
 5. **Push & PR**: Branch pushed to `origin`, PR opened against `Main`
-6. **CI/CD Gate**: PR must pass lint, build, test, and E2E checks
+6. **CI/CD Gate**: PR must pass lint, build, test, coverage, and E2E checks
 7. **Human Review**: PR reviewed and approved by human
 8. **Merge & Deploy**: Merge triggers main branch pipeline and deployment
 
@@ -198,6 +320,8 @@ When opening a pull request:
 - PR MUST NOT be merged automatically or by AI
 - PR MUST receive human review and approval before merge
 - PR MUST pass all CI/CD pipeline checks before merge
+- PR MUST include tests covering the feature (unless exempted)
+- PR MUST meet coverage threshold for the affected feature area
 - PR description MUST be clean and professional
 - PR MUST NOT contain references to private context or tooling
 
@@ -230,6 +354,8 @@ Sentinel project. All development activity MUST comply with these principles.
 - Commit history MUST be inspected for accidental private data inclusion
 - Branch names and commit messages MUST adhere to naming conventions
 - CI/CD pipeline results MUST be verified before merge
+- Test coverage MUST meet threshold for affected feature areas
+- Technical decisions MUST follow the decision protocol
 - Regular audits of shared branches ensure ongoing compliance
 
 ### Enforcement
@@ -239,4 +365,4 @@ Violations of privacy boundaries require immediate remediation:
 - Rotate any exposed credentials or private artifacts
 - Document the incident and update procedures as needed
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
+**Version**: 1.4.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
