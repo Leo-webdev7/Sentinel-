@@ -1,20 +1,17 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.3.0 → 1.4.0 (Minor: new principle)
+Version change: 1.5.3 → 1.5.4 (PATCH: branch naming correction)
 Modified principles:
-  - VIII. Testing Discipline (expanded)
-Added sections:
-  - IX. Technical Constraints & Decision Framework (new principle)
-  - Legacy Code Policy (under IX)
-  - Library Management (under IX)
-  - Technical Decision Protocol (under IX)
-  - Platform Constraints (under IX)
+  - VI. Release Branch Protocol (main → Main)
+  - VII. CI/CD Pipeline Requirements (main → Main)
+  - Repository Workflow section (main → Main)
+Added sections: N/A
 Removed sections: N/A
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ (Constitution Check section aligns)
-  - .specify/templates/spec-template.md ✅ (scope/requirements alignment)
-  - .specify/templates/tasks-template.md ✅ (task categorization reflects principles)
+  - .specify/templates/plan-template.md ✅ (no changes needed)
+  - .specify/templates/spec-template.md ✅ (no changes needed)
+  - .specify/templates/tasks-template.md ✅ (no changes needed)
 Follow-up TODOs: None
 -->
 
@@ -90,70 +87,132 @@ only atomic, validated commits enter the shared history.
 
 ### VI. Release Branch Protocol
 
-The path from private work to shared code follows a strict protocol:
+The project uses a three-tier branch hierarchy with two deployment
+environments:
 
-1. **Create Release Branch**: From the private workspace, create a branch
-   using the naming convention: `<type>/<feature-name>-<github-nickname>`
-   - Example: `feature/wildfire-alerts-leo`
-   - Example: `fix/map-rendering-leo`
-   - Example: `docs/api-reference-leo`
+```
+dev → stage → Main
+     (staging)  (production)
+```
 
-2. **Clean & Squash**: On this branch, perform ALL cleanup:
-   - Remove all private context, temporary files, and generated noise
-   - Strip AI-inserted artifacts and tooling-generated files
-   - Squash all work into a single, clean commit
-   - Write a clean, professional commit message
+#### Branch Definitions
 
-3. **Push to Origin**: Push the cleaned release branch to `origin`:
-   ```
-   git push origin feature/wildfire-alerts-leo
-   ```
+- **`dev`**: Active development branch. All work happens here.
+  - All feature branches merge into `dev`
+  - This is the integration branch for ongoing work
 
-4. **Open Pull Request**: Create a PR from the release branch targeting
-   the `Main` branch of `origin`
+- **`stage`**: Staging environment branch. Pre-production validation.
+  - Code from `dev` is promoted via PR
+  - Deploys automatically to Netlify stage environment
+  - Used for final validation before production
 
-5. **Human Review & Merge**: PR MUST be reviewed and merged by a human.
-   No automated merging is permitted.
+- **`Main`**: Production environment branch. Stable releases only.
+  - Code from `stage` is promoted via PR
+  - Deploys automatically to Netlify production environment
+  - Represents the current stable release
 
-This protocol ensures clean, reviewable history in the public repository.
+#### Promotion Flow
+
+1. **Work in `dev`**: All development happens in `dev` or feature
+   branches that merge into `dev`
+
+2. **PR: `dev` → `stage`**: When ready to validate:
+   - Create PR from `dev` to `stage`
+   - Pass CI/CD pipeline checks
+   - Human review and approval
+   - Merge triggers stage deployment
+
+3. **Validate in Stage**: Test in stage environment with production-like
+   configuration
+
+4. **PR: `stage` → `Main`**: When ready for production:
+   - Create PR from `stage` to `Main`
+   - Pass CI/CD pipeline checks
+   - Human review and approval
+   - Merge triggers production deployment
+
+#### Branch Protection Rules
+
+- NEVER commit directly to `stage` or `Main`
+- NEVER merge without passing CI/CD checks
+- NEVER merge without human approval
+- ALWAYS use pull requests for promotions
 
 ### VII. CI/CD Pipeline Requirements
 
-All code entering the `Main` branch MUST pass through automated quality
-gates. Two distinct pipelines enforce this requirement:
+Validation checks run ONLY during pull requests. Deployment happens
+automatically via Netlify preview server when branches receive new
+commits.
 
-#### Pull Request Pipeline
+#### PR Validation Pipeline
 
-When a PR is opened targeting `Main`, the following checks MUST pass
-before merge is permitted:
+When any PR is opened, the following checks MUST pass before
+merge is permitted:
 1. **Lint**: Code style and static analysis
 2. **Build**: Successful production build
 3. **Tests**: All unit and integration tests pass
-4. **Coverage**: Test coverage meets minimum threshold for affected areas
-5. **E2E Tests**: End-to-end validation completes successfully
+4. **Typecheck**: TypeScript/type checking passes
+5. **Coverage**: Test coverage meets minimum threshold (70%)
 
-If ANY check fails, the PR MUST NOT be merged until the issue is resolved.
-This pipeline serves as a security gate protecting the main branch.
+If ANY check fails, the PR MUST NOT be merged until resolved.
 
-#### Main Branch Pipeline
+**Important**: These checks run ONLY on PRs. No validation runs
+on direct pushes to `stage` or `dev`.
 
-When code is merged to `Main`, the following steps execute:
-1. **Lint**: Code style and static analysis
-2. **Build**: Successful production build
-3. **Tests**: All unit and integration tests pass
-4. **E2E Tests**: End-to-end validation completes successfully
-5. **Deploy**: Publish to Netlify production environment
+#### Branch Deployment (Automatic)
 
-Note: Coverage checks are NOT required on the main branch pipeline.
-Coverage is enforced at the PR stage only.
+When code is merged to `stage` or `dev` (new commit on branch),
+Netlify automatically deploys:
+
+- **`stage` branch**: Netlify preview deployment
+- **`dev` branch**: Netlify preview deployment
+
+No explicit deploy job is required. Netlify's preview server
+handles deployment automatically on branch updates.
+
+#### Production Deployment (Main branch)
+
+When code is merged to `Main`, Netlify deploys to production.
+
+Production deployment targets the production branch/site.
+
+#### Netlify Preview Server Configuration
+
+The project leverages Netlify's automatic preview deployment system:
+
+- **Stage Branch**: `stage` branch gets automatic deployment
+- **Dev Branch**: `dev` branch gets automatic deployment
+- **Production**: `Main` branch deploys to production site
+
+**Required GitHub Secrets:**
+- `NETLIFY_AUTH_TOKEN` - Netlify API authentication
+- `NETLIFY_SITE_ID` - Netlify site identifier (single site)
+
+**Netlify Configuration in netlify.toml:**
+- Production branch: `Main`
+- Deploy branches: `stage`, `dev`
+- Environment variables configured per branch in Netlify UI
+
+#### Validation Rules Summary
+
+| Event | What Runs | Purpose |
+|-------|-----------|---------|
+| PR opened (any target) | Lint, build, tests, typecheck, coverage | Gate before merge |
+| PR merged to stage | Netlify auto-deploy | Stage validation |
+| PR merged to dev | Netlify auto-deploy | Dev validation |
+| PR merged to Main | Netlify auto-deploy | Production release |
+
+No checks run on branch pushes - only on PRs.
 
 #### Implementation Requirements
 
-- Pipelines MUST be implemented as GitHub Actions workflows
+- Validation MUST be implemented as GitHub Actions workflows
 - Workflow files MUST be stored in `.github/workflows/`
 - Netlify credentials MUST be stored securely in GitHub Secrets
 - Secrets MUST NOT be hardcoded or logged in workflow output
 - Pipeline configuration MUST be version-controlled alongside code
+- Netlify preview server handles branch deployments automatically
+- Only PR validation requires explicit CI workflow
 
 ### VIII. Testing Discipline
 
@@ -171,7 +230,7 @@ Every feature MUST include tests unless explicitly exempted.
 #### When Coverage is Checked
 
 - Coverage is checked during the **PR pipeline only**
-- Coverage is NOT required for main branch pipeline merges
+- Coverage is NOT required on stage or main branch pipelines
 - PR MUST NOT be merged if coverage falls below the threshold
 - Coverage reports SHOULD be visible in PR comments
 
@@ -282,41 +341,44 @@ The project maintains two remotes with distinct purposes:
 - **`myfork`** (private): The personal workspace for development,
   experimentation, and preparation
 
-### Branch Naming Convention
-
-When preparing work for sharing, branches MUST follow this format:
+### Branch Hierarchy
 
 ```
-<type>/<feature-name>-<github-nickname>
+myfork (private)
+    │
+    ├── dev (active development)
+    │     │
+    │     ├── feature branches (merge into dev)
+    │     │
+    │     └── PR → stage
+    │
+    ├── stage (staging environment)
+    │     │
+    │     └── PR → main
+    │
+    └── main (production environment)
 ```
 
-Where:
-- `<type>`: One of `feature`, `fix`, `docs`, `refactor`, `test`, `ci`
-- `<feature-name>`: Short, descriptive kebab-case name
-- `<github-nickname>`: Your GitHub username (e.g., `leo`)
+### Environment Variables
 
-Examples:
-- `feature/smoke-layer-leo`
-- `fix/legend-positioning-leo`
-- `docs/deployment-guide-leo`
-
-This convention ensures clear ownership and purpose for shared branches.
+| Environment | Branch | Netlify Site ID | Purpose |
+|-------------|--------|-----------------|---------|
+| Stage | `stage` | `NETLIFY_SITE_ID_STAGE` | Pre-production validation |
+| Production | `Main` | `NETLIFY_SITE_ID_MAIN` | Live application |
 
 ### Work Cycle
 
-1. **Private Development**: Work occurs in private branches within `myfork`
-2. **Completion & Validation**: Work is validated, tested, and finalized
-3. **Create Release Branch**: Branch named `<type>/<name>-<nickname>` created
-4. **Clean & Squash**: All private artifacts removed, work squashed to one commit
-5. **Push & PR**: Branch pushed to `origin`, PR opened against `Main`
-6. **CI/CD Gate**: PR must pass lint, build, test, coverage, and E2E checks
-7. **Human Review**: PR reviewed and approved by human
-8. **Merge & Deploy**: Merge triggers main branch pipeline and deployment
+1. **Development**: Work in `dev` or feature branches
+2. **Integration**: Merge feature branches into `dev`
+3. **Stage Promotion**: PR from `dev` → `stage`
+4. **Stage Validation**: Test in stage environment
+5. **Production Promotion**: PR from `stage` → `Main`
+6. **Production Deploy**: Automatic deployment to Netlify
 
 ### Pull Request Protocol
 
 When opening a pull request:
-- PR MUST target the `Main` branch of `origin`
+- PR MUST target either `stage` or `Main` (never `dev`)
 - PR MUST NOT be merged automatically or by AI
 - PR MUST receive human review and approval before merge
 - PR MUST pass all CI/CD pipeline checks before merge
@@ -327,8 +389,8 @@ When opening a pull request:
 
 ### Branch Protection
 
-- Never commit directly to `Main` on `origin`
-- Never push raw development branches to `origin`
+- Never commit directly to `stage` or `Main`
+- Never push raw development branches to `stage` or `Main`
 - Never include private notes, tooling files, or AI artifacts in shared commits
 - Always verify commit content before sharing
 - Use interactive rebase to clean commit history before sharing
@@ -365,4 +427,4 @@ Violations of privacy boundaries require immediate remediation:
 - Rotate any exposed credentials or private artifacts
 - Document the incident and update procedures as needed
 
-**Version**: 1.4.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
+**Version**: 1.5.4 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
