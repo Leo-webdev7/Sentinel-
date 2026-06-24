@@ -27,6 +27,24 @@ COMMIT_MSG=""
 REMOTE="myfork"
 UPSTREAM="sentinel-upstream"
 
+# Files/directories to exclude from upstream
+EXCLUDE_PATTERNS=(
+  ".specify"
+  "specs"
+  ".agents"
+  ".opencode/skills"
+  "AGENTS.md"
+  "skills"
+  "constitution.md"
+  "*.constitution.*"
+  "coverage"
+  "playwright-report"
+  "*.log"
+  ".env"
+  ".env.local"
+  ".env.*.local"
+)
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -61,6 +79,22 @@ done
 
 echo -e "${YELLOW}🔧 Preparing for upstream submission...${NC}"
 
+# Function to check if a file should be excluded
+should_exclude() {
+  local file="$1"
+  local pattern
+  
+  for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+    # Check if file matches the pattern
+    case "$file" in
+      $pattern|$pattern/*|$pattern/**)
+        return 0  # Should exclude
+        ;;
+    esac
+  done
+  return 1  # Should not exclude
+}
+
 # Step 1: Check current state
 echo -e "\n${YELLOW}📋 Step 1: Checking current state...${NC}"
 
@@ -73,18 +107,11 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
-# Check for untracked files that might be important
-UNTRACKED=$(git ls-files --others --exclude-standard | wc -l)
-if [[ $UNTRACKED -gt 0 ]]; then
-  echo -e "${YELLOW}⚠️  You have $UNTRACKED untracked files${NC}"
-fi
-
 # Step 2: Determine branch name
 echo -e "\n${YELLOW}📝 Step 2: Determining branch name...${NC}"
 
 if [[ -z "$BRANCH_NAME" ]]; then
   if [[ "$ORIGINAL_BRANCH" != "detached" ]]; then
-    # Use the original branch name with -upstream suffix
     BRANCH_NAME="${ORIGINAL_BRANCH}-upstream"
   else
     BRANCH_NAME="feature/$(date +%Y%m%d-%H%M%S)"
@@ -102,7 +129,6 @@ echo "  Branch name: $BRANCH_NAME"
 echo -e "\n${YELLOW}💬 Step 3: Determining commit message...${NC}"
 
 if [[ -z "$COMMIT_MSG" ]]; then
-  # Generate commit message from last commit on current branch
   LAST_COMMIT=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "")
   if [[ -n "$LAST_COMMIT" ]]; then
     COMMIT_MSG="$LAST_COMMIT"
@@ -122,7 +148,7 @@ echo "  Fetched latest from $UPSTREAM"
 # Step 5: Create clean branch from upstream
 echo -e "\n${YELLOW}🌿 Step 5: Creating clean branch...${NC}"
 
-# Delete the branch if it already exists (force switch back to original first)
+# Delete the branch if it already exists
 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
   if [[ "$BRANCH_NAME" == "$ORIGINAL_BRANCH" ]]; then
     echo -e "${RED}❌ Cannot delete current branch. Use a different name.${NC}"
@@ -151,13 +177,11 @@ if [[ "$ORIGINAL_BRANCH" != "detached" && "$ORIGINAL_BRANCH" != "$BRANCH_NAME" ]
     
     # Copy each file, excluding unwanted ones
     while IFS= read -r file; do
-      # Skip excluded files
-      case "$file" in
-        .specify/*|specs/*|.agents/*|.opencode/skills/*|AGENTS.md|skills/*|constitution.md|*.constitution.*|coverage/*|playwright-report/*|*.log|.env|.env.local|.env.*.local)
-          echo "  Skipping: $file (excluded)"
-          continue
-          ;;
-      esac
+      # Check if file should be excluded
+      if should_exclude "$file"; then
+        echo "  Skipping: $file (excluded)"
+        continue
+      fi
       
       # Copy the file from original branch
       if git checkout "$ORIGINAL_BRANCH" -- "$file" 2>/dev/null; then
@@ -184,7 +208,8 @@ fi
 # Step 8: Push to fork
 echo -e "\n${YELLOW}🚀 Step 8: Pushing to fork...${NC}"
 
-git push "$REMOTE" "$BRANCH_NAME" --force-with-lease
+git push "$REMOTE" "$BRANCH_NAME" --force-with-lease 2>/dev/null || \
+git push "$REMOTE" "$BRANCH_NAME" --force
 echo "  Pushed to: $REMOTE/$BRANCH_NAME"
 
 # Step 9: Switch back to original branch
