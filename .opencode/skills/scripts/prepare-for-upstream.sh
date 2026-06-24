@@ -84,7 +84,8 @@ echo -e "\n${YELLOW}📝 Step 2: Determining branch name...${NC}"
 
 if [[ -z "$BRANCH_NAME" ]]; then
   if [[ "$ORIGINAL_BRANCH" != "detached" ]]; then
-    BRANCH_NAME="$ORIGINAL_BRANCH"
+    # Use the original branch name with -upstream suffix
+    BRANCH_NAME="${ORIGINAL_BRANCH}-upstream"
   else
     BRANCH_NAME="feature/$(date +%Y%m%d-%H%M%S)"
   fi
@@ -121,8 +122,15 @@ echo "  Fetched latest from $UPSTREAM"
 # Step 5: Create clean branch from upstream
 echo -e "\n${YELLOW}🌿 Step 5: Creating clean branch...${NC}"
 
-# Delete the branch if it already exists
-git branch -D "$BRANCH_NAME" 2>/dev/null || true
+# Delete the branch if it already exists (force switch back to original first)
+if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+  if [[ "$BRANCH_NAME" == "$ORIGINAL_BRANCH" ]]; then
+    echo -e "${RED}❌ Cannot delete current branch. Use a different name.${NC}"
+    exit 1
+  fi
+  git checkout "$ORIGINAL_BRANCH" 2>/dev/null || true
+  git branch -D "$BRANCH_NAME" 2>/dev/null || true
+fi
 
 # Create new branch from upstream/Main
 git checkout -b "$BRANCH_NAME" "$UPSTREAM/Main" 2>/dev/null || \
@@ -152,8 +160,9 @@ if [[ "$ORIGINAL_BRANCH" != "detached" && "$ORIGINAL_BRANCH" != "$BRANCH_NAME" ]
       esac
       
       # Copy the file from original branch
-      git checkout "$ORIGINAL_BRANCH" -- "$file" 2>/dev/null || true
-      echo "  Copied: $file"
+      if git checkout "$ORIGINAL_BRANCH" -- "$file" 2>/dev/null; then
+        echo "  Copied: $file"
+      fi
     done <<< "$CHANGED_FILES"
   else
     echo "  No changes found to copy"
