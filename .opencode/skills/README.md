@@ -29,6 +29,7 @@ The following files are automatically removed from the upstream commit:
 - `.specify/` - SpecKit configuration and memory
 - `specs/` - Feature specifications and planning docs
 - `.agents/` - Agent skills and configurations
+- `.opencode/skills/` - OpenCode skills directory
 - `AGENTS.md` - Agent context file
 - `skills/` - Skills directory
 - `constitution.md` - Project constitution

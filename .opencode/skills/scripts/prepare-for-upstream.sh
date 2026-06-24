@@ -2,6 +2,7 @@
 #
 # prepare-for-upstream.sh
 # Creates a clean branch with squashed commit for upstream submission
+# Original branch stays untouched
 #
 # Usage:
 #   ./prepare-for-upstream.sh [branch-name] [--message "commit message"]
@@ -23,8 +24,8 @@ NC='\033[0m' # No Color
 # Default values
 BRANCH_NAME=""
 COMMIT_MSG=""
-REMOTE="origin"
-UPSTREAM="upstream"
+REMOTE="myfork"
+UPSTREAM="sentinel-upstream"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -46,8 +47,8 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Options:"
       echo "  --message, -m    Custom commit message"
-      echo "  --remote         Remote name (default: origin)"
-      echo "  --upstream       Upstream remote name (default: upstream)"
+      echo "  --remote         Remote name (default: myfork)"
+      echo "  --upstream       Upstream remote name (default: sentinel-upstream)"
       echo "  --help, -h       Show this help"
       exit 0
       ;;
@@ -63,31 +64,27 @@ echo -e "${YELLOW}🔧 Preparing for upstream submission...${NC}"
 # Step 1: Check current state
 echo -e "\n${YELLOW}📋 Step 1: Checking current state...${NC}"
 
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "detached")
-echo "  Current branch: $CURRENT_BRANCH"
+ORIGINAL_BRANCH=$(git branch --show-current 2>/dev/null || echo "detached")
+echo "  Original branch: $ORIGINAL_BRANCH"
 
-CHANGES=$(git status --short | wc -l)
-echo "  Uncommitted changes: $CHANGES files"
-
-# Check for remotes
-if ! git remote get-url "$REMOTE" &>/dev/null; then
-  echo -e "${RED}❌ Remote '$REMOTE' not found${NC}"
-  echo "  Add it with: git remote add $REMOTE <url>"
+# Check for uncommitted changes
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo -e "${RED}❌ You have uncommitted changes. Commit or stash them first.${NC}"
   exit 1
 fi
 
-if ! git remote get-url "$UPSTREAM" &>/dev/null; then
-  echo -e "${YELLOW}⚠️  Upstream '$UPSTREAM' not found, using '$REMOTE'${NC}"
-  UPSTREAM="$REMOTE"
+# Check for untracked files that might be important
+UNTRACKED=$(git ls-files --others --exclude-standard | wc -l)
+if [[ $UNTRACKED -gt 0 ]]; then
+  echo -e "${YELLOW}⚠️  You have $UNTRACKED untracked files${NC}"
 fi
 
 # Step 2: Determine branch name
 echo -e "\n${YELLOW}📝 Step 2: Determining branch name...${NC}"
 
 if [[ -z "$BRANCH_NAME" ]]; then
-  # Generate branch name from current changes
-  if [[ "$CURRENT_BRANCH" != "detached" ]]; then
-    BRANCH_NAME="$CURRENT_BRANCH"
+  if [[ "$ORIGINAL_BRANCH" != "detached" ]]; then
+    BRANCH_NAME="$ORIGINAL_BRANCH"
   else
     BRANCH_NAME="feature/$(date +%Y%m%d-%H%M%S)"
   fi
@@ -104,11 +101,10 @@ echo "  Branch name: $BRANCH_NAME"
 echo -e "\n${YELLOW}💬 Step 3: Determining commit message...${NC}"
 
 if [[ -z "$COMMIT_MSG" ]]; then
-  # Generate commit message from changes
-  CHANGED_FILES=$(git diff --name-only 2>/dev/null | head -5)
-  if [[ -n "$CHANGED_FILES" ]]; then
-    FIRST_FILE=$(basename "$CHANGED_FILES" | head -1)
-    COMMIT_MSG="feat: update $FIRST_FILE"
+  # Generate commit message from last commit on current branch
+  LAST_COMMIT=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "")
+  if [[ -n "$LAST_COMMIT" ]]; then
+    COMMIT_MSG="$LAST_COMMIT"
   else
     COMMIT_MSG="feat: update project"
   fi
@@ -122,64 +118,50 @@ echo -e "\n${YELLOW}🔄 Step 4: Fetching latest from upstream...${NC}"
 git fetch "$UPSTREAM"
 echo "  Fetched latest from $UPSTREAM"
 
-# Step 5: Create clean branch
+# Step 5: Create clean branch from upstream
 echo -e "\n${YELLOW}🌿 Step 5: Creating clean branch...${NC}"
 
-# Stash current changes if any
-if [[ $CHANGES -gt 0 ]]; then
-  git stash push -m "temp stash for upstream preparation"
-  echo "  Stashed current changes"
-fi
+# Delete the branch if it already exists
+git branch -D "$BRANCH_NAME" 2>/dev/null || true
 
 # Create new branch from upstream/Main
 git checkout -b "$BRANCH_NAME" "$UPSTREAM/Main" 2>/dev/null || \
 git checkout -b "$BRANCH_NAME" "$UPSTREAM/main" 2>/dev/null || \
 git checkout -b "$BRANCH_NAME" "$UPSTREAM/master" 2>/dev/null
 
-echo "  Created branch: $BRANCH_NAME"
+echo "  Created branch: $BRANCH_NAME from $UPSTREAM/Main"
 
-# Step 6: Apply cleaned changes
-echo -e "\n${YELLOW}🧹 Step 6: Applying cleaned changes...${NC}"
+# Step 6: Copy changes from original branch (excluding unwanted files)
+echo -e "\n${YELLOW}📦 Step 6: Copying changes from $ORIGINAL_BRANCH...${NC}"
 
-if [[ $CHANGES -gt 0 ]]; then
-  git stash pop
+if [[ "$ORIGINAL_BRANCH" != "detached" && "$ORIGINAL_BRANCH" != "$BRANCH_NAME" ]]; then
+  # Get list of files changed in original branch compared to upstream
+  CHANGED_FILES=$(git diff --name-only "$UPSTREAM/Main"..."$ORIGINAL_BRANCH" 2>/dev/null || true)
   
-  # Remove excluded files from staging
-  echo "  Removing internal files..."
-  
-  # SpecKit files
-  git rm -r --cached .specify/ 2>/dev/null || true
-  git rm -r --cached specs/ 2>/dev/null || true
-  
-  # Agent files
-  git rm -r --cached .agents/ 2>/dev/null || true
-  git rm --cached AGENTS.md 2>/dev/null || true
-  
-  # Skills
-  git rm -r --cached skills/ 2>/dev/null || true
-  
-  # Constitution
-  git rm --cached constitution.md 2>/dev/null || true
-  git rm --cached *.constitution.* 2>/dev/null || true
-  
-  # Internal docs
-  git rm --cached docs/plan*.md 2>/dev/null || true
-  git rm --cached docs/research*.md 2>/dev/null || true
-  git rm --cached *-internal.md 2>/dev/null || true
-  
-  # Development artifacts
-  git rm -r --cached coverage/ 2>/dev/null || true
-  git rm -r --cached playwright-report/ 2>/dev/null || true
-  git rm --cached *.log 2>/dev/null || true
-  git rm --cached .env 2>/dev/null || true
-  git rm --cached .env.local 2>/dev/null || true
-  git rm --cached .env.*.local 2>/dev/null || true
-  
-  echo "  Removed internal files from staging"
+  if [[ -n "$CHANGED_FILES" ]]; then
+    echo "  Found $(echo "$CHANGED_FILES" | wc -l) changed files"
+    
+    # Copy each file, excluding unwanted ones
+    while IFS= read -r file; do
+      # Skip excluded files
+      case "$file" in
+        .specify/*|specs/*|.agents/*|.opencode/skills/*|AGENTS.md|skills/*|constitution.md|*.constitution.*|coverage/*|playwright-report/*|*.log|.env|.env.local|.env.*.local)
+          echo "  Skipping: $file (excluded)"
+          continue
+          ;;
+      esac
+      
+      # Copy the file from original branch
+      git checkout "$ORIGINAL_BRANCH" -- "$file" 2>/dev/null || true
+      echo "  Copied: $file"
+    done <<< "$CHANGED_FILES"
+  else
+    echo "  No changes found to copy"
+  fi
 fi
 
-# Step 7: Create squash commit
-echo -e "\n${YELLOW}📦 Step 7: Creating commit...${NC}"
+# Step 7: Create commit
+echo -e "\n${YELLOW}📝 Step 7: Creating commit...${NC}"
 
 git add .
 
@@ -193,17 +175,23 @@ fi
 # Step 8: Push to fork
 echo -e "\n${YELLOW}🚀 Step 8: Pushing to fork...${NC}"
 
-git push "$REMOTE" "$BRANCH_NAME"
+git push "$REMOTE" "$BRANCH_NAME" --force-with-lease
 echo "  Pushed to: $REMOTE/$BRANCH_NAME"
+
+# Step 9: Switch back to original branch
+echo -e "\n${YELLOW}🔄 Step 9: Switching back to original branch...${NC}"
+
+git checkout "$ORIGINAL_BRANCH"
+echo "  Switched back to: $ORIGINAL_BRANCH"
 
 # Summary
 echo -e "\n${GREEN}✅ Ready for upstream!${NC}"
 echo ""
 echo "Summary:"
-echo "  Branch: $BRANCH_NAME"
-echo "  Commit: $(git rev-parse --short HEAD) - $COMMIT_MSG"
-echo "  Changes: $(git diff --stat HEAD~1 2>/dev/null | tail -1)"
+echo "  Original branch: $ORIGINAL_BRANCH (untouched)"
+echo "  Clean branch: $BRANCH_NAME"
+echo "  Commit: $(git rev-parse --short "$BRANCH_NAME") - $COMMIT_MSG"
 echo ""
 echo "Next steps:"
-echo "  1. Create PR: gh pr create --base Main"
+echo "  1. Create PR: gh pr create --base Main --head $REMOTE:$BRANCH_NAME"
 echo "  2. Or visit: https://github.com/<org>/<repo>/compare/Main...$REMOTE:$BRANCH_NAME"
