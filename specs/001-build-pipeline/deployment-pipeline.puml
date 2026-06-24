@@ -1,0 +1,109 @@
+@startuml Deployment Pipeline
+
+title Sentinel Deployment Pipeline (Current Implementation)
+
+skinparam backgroundColor #FEFEFE
+skinparam activityBackgroundColor #E8F4FD
+skinparam activityBorderColor #2196F3
+skinparam activityDiamondBackgroundColor #FFF3E0
+skinparam activityDiamondBorderColor #FF9800
+skinparam arrowColor #333333
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #FBC02D
+
+|CI Workflow (prod)|
+start
+:Push/PR to **prod** branch;
+
+fork
+  :**Lint Job**
+  npm run lint;
+  if (lint passes?) then (yes)
+  else (no)
+    #FF6B6B:Pipeline Fails;
+    stop
+  endif
+end fork
+
+:Build Job
+npm run build;
+if (build succeeds?) then (yes)
+else (no)
+  #FF6B6B:Pipeline Fails;
+  stop
+endif
+
+:E2E Tests Job
+Playwright tests;
+if (E2E pass?) then (yes)
+else (no)
+  #FF6B6B:Pipeline Fails;
+  stop
+endif
+
+#90EE90:CI Pipeline Passes;
+stop
+
+|Deploy Workflow (Main)|
+start
+:Push to **Main** branch;
+
+:Build Job
+npm run build;
+note right
+  Uploads dist/ artifact
+end note
+if (build succeeds?) then (yes)
+else (no)
+  #FF6B6B:Deployment Blocked;
+  stop
+endif
+
+:Deploy to Netlify
+nwtgck/actions-netlify@v3;
+note right
+  Uses secrets:
+  - NETLIFY_AUTH_TOKEN
+  - NETLIFY_SITE_ID
+  production-deploy: true
+end note
+if (deployment succeeds?) then (yes)
+else (no)
+  #FF6B6B:Deployment Failed;
+  stop
+endif
+
+#90EE90:Application Deployed;
+stop
+
+|Merge Gate Workflow (prod to main)|
+start
+:PR opened: **prod** to **main**;
+
+:Verify Job
+npm ci, build, test:coverage;
+if (build + tests pass?) then (yes)
+else (no)
+  #FF6B6B:PR Blocked;
+  stop
+endif
+
+if (dist/ exists?) then (yes)
+else (no)
+  #FF6B6B:PR Blocked - No build output;
+  stop
+endif
+
+#90EE90:PR Ready for Review;
+stop
+
+legend bottom
+  |= Color |= Meaning |
+  | <#E8F5E9> | CI Workflow |
+  | <#E3F2FD> | Deploy Workflow |
+  | <#FFF3E0> | Merge Gate |
+  | <#90EE90> | Success |
+  | <#FF6B6B> | Failure |
+endlegend
+
+@enduml
