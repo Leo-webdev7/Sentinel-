@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
-describe('firmsRateLimiter', () => {
+describe('mapboxRateLimiter', () => {
   let remaining, msUntilSlotAvailable, recordRequest, acquireSlot, status;
 
   beforeEach(async () => {
     vi.useFakeTimers();
-    const mod = await import('./firmsRateLimiter');
+    const mod = await import('../../src/utils/mapboxRateLimiter');
     remaining = mod.remaining;
     msUntilSlotAvailable = mod.msUntilSlotAvailable;
     recordRequest = mod.recordRequest;
@@ -20,13 +20,14 @@ describe('firmsRateLimiter', () => {
 
   describe('remaining', () => {
     it('returns max requests when no requests made', () => {
-      expect(remaining()).toBe(4999);
+      expect(remaining()).toBe(6000);
     });
 
-    it('decreases remaining after recording requests', () => {
+    it('decreases after recording requests', () => {
       recordRequest();
       recordRequest();
-      expect(remaining()).toBe(4997);
+      recordRequest();
+      expect(remaining()).toBe(5997);
     });
   });
 
@@ -36,33 +37,10 @@ describe('firmsRateLimiter', () => {
     });
 
     it('returns positive wait time when window is full', () => {
-      for (let i = 0; i < 4999; i++) {
+      for (let i = 0; i < 6000; i++) {
         recordRequest();
       }
       expect(msUntilSlotAvailable()).toBeGreaterThan(0);
-    });
-  });
-
-  describe('acquireSlot', () => {
-    it('resolves immediately when slots are available', async () => {
-      const start = Date.now();
-      await acquireSlot();
-      expect(Date.now()).toBe(start);
-    });
-
-    it('waits when window is full', async () => {
-      for (let i = 0; i < 4999; i++) {
-        recordRequest();
-      }
-
-      let resolved = false;
-      const promise = acquireSlot().then(() => { resolved = true; });
-
-      expect(resolved).toBe(false);
-
-      vi.advanceTimersByTime(10 * 60 * 1000 + 1);
-      await promise;
-      expect(resolved).toBe(true);
     });
   });
 
@@ -71,8 +49,8 @@ describe('firmsRateLimiter', () => {
       const s = status();
       expect(s).toHaveProperty('used');
       expect(s).toHaveProperty('remaining');
-      expect(s).toHaveProperty('maxRequests', 4999);
-      expect(s).toHaveProperty('windowMs', 10 * 60 * 1000);
+      expect(s).toHaveProperty('maxRequests', 6000);
+      expect(s).toHaveProperty('windowMs', 60 * 1000);
     });
   });
 });

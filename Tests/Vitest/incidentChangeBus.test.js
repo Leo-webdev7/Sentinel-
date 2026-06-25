@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   subscribeToIncidentChanges,
   publishIncidentChange,
-} from './incidentChangeBus';
+} from '../../src/utils/incidentChangeBus';
 
 describe('incidentChangeBus', () => {
   it('calls subscriber when change is published', () => {

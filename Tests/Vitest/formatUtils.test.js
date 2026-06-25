@@ -13,7 +13,7 @@ import {
   formatContainment,
   formatStatus,
   abbreviateNumber,
-} from './formatUtils';
+} from '../../src/utils/formatUtils';
 
 describe('formatAcres', () => {
   it('formats large acreage with commas', () => {

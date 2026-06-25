@@ -1,6 +1,6 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useDroughtOutlook } from './useDroughtOutlook';
+import { useDroughtOutlook } from '../../src/hooks/useDroughtOutlook';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 

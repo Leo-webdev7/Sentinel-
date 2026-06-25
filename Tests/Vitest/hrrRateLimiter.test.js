@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
-describe('openSkyRateLimiter', () => {
-  let remaining, msUntilSlotAvailable, recordRequest, acquireSlot, status;
+describe('hrrRateLimiter', () => {
+  let remaining, msUntilSlotAvailable, recordRequest, tryAcquire, status;
 
   beforeEach(async () => {
     vi.useFakeTimers();
-    const mod = await import('./openSkyRateLimiter');
+    const mod = await import('../../src/utils/hrrRateLimiter');
     remaining = mod.remaining;
     msUntilSlotAvailable = mod.msUntilSlotAvailable;
     recordRequest = mod.recordRequest;
-    acquireSlot = mod.acquireSlot;
+    tryAcquire = mod.tryAcquire;
     status = mod.status;
   });
 
@@ -19,14 +19,27 @@ describe('openSkyRateLimiter', () => {
   });
 
   describe('remaining', () => {
-    it('returns max credits when no requests made', () => {
-      expect(remaining()).toBe(166);
+    it('returns max requests when no requests made', () => {
+      expect(remaining()).toBe(9999);
     });
 
     it('decreases after recording requests', () => {
       recordRequest();
-      recordRequest();
-      expect(remaining()).toBe(164);
+      expect(remaining()).toBe(9998);
+    });
+  });
+
+  describe('tryAcquire', () => {
+    it('returns true and records request when slot available', () => {
+      expect(tryAcquire()).toBe(true);
+      expect(remaining()).toBe(9998);
+    });
+
+    it('returns false when window is full', () => {
+      for (let i = 0; i < 9999; i++) {
+        recordRequest();
+      }
+      expect(tryAcquire()).toBe(false);
     });
   });
 
@@ -36,18 +49,10 @@ describe('openSkyRateLimiter', () => {
     });
 
     it('returns positive wait time when window is full', () => {
-      for (let i = 0; i < 166; i++) {
+      for (let i = 0; i < 9999; i++) {
         recordRequest();
       }
       expect(msUntilSlotAvailable()).toBeGreaterThan(0);
-    });
-  });
-
-  describe('acquireSlot', () => {
-    it('resolves immediately when slots available', async () => {
-      const start = Date.now();
-      await acquireSlot();
-      expect(Date.now()).toBe(start);
     });
   });
 
@@ -56,8 +61,8 @@ describe('openSkyRateLimiter', () => {
       const s = status();
       expect(s).toHaveProperty('used');
       expect(s).toHaveProperty('remaining');
-      expect(s).toHaveProperty('maxCredits', 166);
-      expect(s).toHaveProperty('windowMs', 60 * 60 * 1000);
+      expect(s).toHaveProperty('maxRequests', 9999);
+      expect(s).toHaveProperty('windowMs', 24 * 60 * 60 * 1000);
     });
   });
 });

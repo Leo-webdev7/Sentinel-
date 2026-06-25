@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { alertsToGeoJSON } from './noaaWeather';
+import { alertsToGeoJSON } from '../../src/api/noaaWeather';
 
 describe('alertsToGeoJSON', () => {
   it('converts alerts with geometry to GeoJSON FeatureCollection', () => {

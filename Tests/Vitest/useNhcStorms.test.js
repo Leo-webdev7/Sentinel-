@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useNhcStorms } from './useNhcStorms';
-import * as nhcStorms from '../api/nhcStorms';
+import { useNhcStorms } from '../../src/hooks/useNhcStorms';
+import * as nhcStorms from '../../src/api/nhcStorms';
 
-vi.mock('../api/nhcStorms');
+vi.mock('../../src/api/nhcStorms');
 
 beforeEach(() => {
   vi.restoreAllMocks();

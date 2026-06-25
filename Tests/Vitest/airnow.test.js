@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aqiToGeoJSON } from './airnow';
+import { aqiToGeoJSON } from '../../src/api/airnow';
 
 describe('aqiToGeoJSON', () => {
   it('converts station array to GeoJSON FeatureCollection', () => {

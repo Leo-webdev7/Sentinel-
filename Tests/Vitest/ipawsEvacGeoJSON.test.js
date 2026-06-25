@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ipawsAlertsToEvacFeatures } from './ipawsEvacGeoJSON';
+import { ipawsAlertsToEvacFeatures } from '../../src/utils/ipawsEvacGeoJSON';
 
 describe('ipawsAlertsToEvacFeatures', () => {
   it('returns empty array for non-array input', () => {

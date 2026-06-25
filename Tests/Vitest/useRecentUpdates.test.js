@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useRecentUpdates } from './useRecentUpdates';
+import { useRecentUpdates } from '../../src/hooks/useRecentUpdates';
 
 const mockUpdates = [
   { id: '1', incident_id: 'fire-1', incident_name: 'Test Fire', content: '1000 acres', created_at: '2025-01-01' },
@@ -21,7 +21,7 @@ const mockSupabase = {
   removeChannel: vi.fn(),
 };
 
-vi.mock('../api/supabaseClient', () => ({
+vi.mock('../../src/api/supabaseClient', () => ({
   get supabase() { return mockSupabase; },
   get isSupabaseConfigured() { return true; },
 }));

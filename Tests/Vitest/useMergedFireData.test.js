@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getFireMatchKey } from './useMergedFireData';
+import { getFireMatchKey } from '../../src/hooks/useMergedFireData';
 
 describe('getFireMatchKey', () => {
   it('normalizes a basic fire name', () => {

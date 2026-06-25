@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useFirePerimeters } from './useFirePerimeters';
-import * as nifc from '../api/nifc';
+import { useFirePerimeters } from '../../src/hooks/useFirePerimeters';
+import * as nifc from '../../src/api/nifc';
 
-vi.mock('../api/nifc');
+vi.mock('../../src/api/nifc');
 
 beforeEach(() => {
   vi.restoreAllMocks();
