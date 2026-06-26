@@ -36,9 +36,13 @@ const initialState = {
     schoolsUniversities: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
+    /** NOAA NWPS water gauges */
+    waterGauges: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
+  // Currently selected water gauge (properties from map feature)
+  selectedGauge: null,
   // Sidebar open/closed (left panel)
   sidebarOpen: true,
   // Layer control panel open/closed (right panel)
@@ -67,6 +71,7 @@ const A = {
   SET_LAYER:          'SET_LAYER',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
+  SELECT_GAUGE:       'SELECT_GAUGE',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
@@ -91,9 +96,11 @@ function reducer(state, action) {
         layers: { ...state.layers, [action.layer]: action.value },
       };
     case A.SELECT_FIRE:
-      return { ...state, selectedFire: action.fire };
+      return { ...state, selectedFire: action.fire, selectedGauge: null };
     case A.CLEAR_SELECTED:
-      return { ...state, selectedFire: null };
+      return { ...state, selectedFire: null, selectedGauge: null };
+    case A.SELECT_GAUGE:
+      return { ...state, selectedGauge: action.gauge, selectedFire: null };
     case A.TOGGLE_SIDEBAR:
       return { ...state, sidebarOpen: !state.sidebarOpen };
     case A.TOGGLE_LAYER_PANEL:
@@ -125,6 +132,7 @@ export function AppProvider({ children }) {
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
+  const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
@@ -153,6 +161,7 @@ export function AppProvider({ children }) {
       setLayer,
       selectFire,
       clearSelected,
+      selectGauge,
       toggleSidebar,
       toggleLayerPanel,
       toggleLegend,
