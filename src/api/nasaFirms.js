@@ -18,6 +18,8 @@ import { acquireSlot } from '../utils/firmsRateLimiter';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
+const IS_DEV = import.meta.env.DEV;
+
 // Direct-access fallback via Netlify edge-function proxy (requires
 // VITE_NASA_FIRMS_API_KEY in .env – key will be visible in the URL).
 const FIRMS_BASE = '/api/firms/api/area';
@@ -143,7 +145,8 @@ export async function fetchFireHotspots(
   if (cached !== null) return cached;
 
   // 1. Preferred path: Supabase edge function (key stays server-side)
-  if (isSupabaseConfigured) {
+  // Skip in dev mode — edge function lacks CORS headers for localhost
+  if (isSupabaseConfigured && !IS_DEV) {
     try {
       return normalizeHotspots(await fetchViaSupabase(source, area, days, cacheKey));
     } catch (err) {
@@ -162,7 +165,7 @@ export async function fetchFireHotspots(
   }
 
   // 3. No API access – use demo data
-  if (!isSupabaseConfigured && !MAP_KEY) {
+  if (!MAP_KEY) {
     console.info('[FIRMS] No API key configured – using demo data');
   }
   return withRecentAcquisition(MOCK_FIRE_HOTSPOTS);
