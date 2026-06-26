@@ -122,7 +122,7 @@ async function mockAPIs(page: Page, features: ReturnType<typeof toNWSFeature>[])
   await page.route('**/arcgis/**LatestNWSZones**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"type":"FeatureCollection","features":[]}' }),
   );
-  await page.route('**/counties.geojson', (route) =>
+  await page.route('**/api/census/counties', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"type":"FeatureCollection","features":[]}' }),
   );
   await page.route('**/nws_reference**FeatureServer**', (route) =>

@@ -41,10 +41,10 @@ const COLOR_MATCH = [
 const OPACITY_MATCH = [
   'match',
   ['get', 'warningType'],
-  'Evacuation Order',   0.32,
-  'Evacuation Warning', 0.25,
-  'Evacuation Watch',   0.18,
-  /* default */         0.22,
+  'Evacuation Order',   0.60,
+  'Evacuation Warning', 0.50,
+  'Evacuation Watch',   0.40,
+  /* default */         0.45,
 ];
 
 const LINE_WIDTH_MATCH = [
@@ -59,7 +59,7 @@ const EvacZonesLayer = memo(function EvacZonesLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
-    <Source id="evac-zones" type="geojson" data={geoJSON || EMPTY_GEOJSON} generateId>
+    <Source id="evac-zones" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
       {/* Polygon fill */}
       <Layer
         id="evac-zones-fill"

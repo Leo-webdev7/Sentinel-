@@ -22,9 +22,20 @@ const ZONES_URL =
   "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/LatestNWSZones/FeatureServer/0/query?where=1%3D1&outFields=STATE,ZONE&outSR=4326&f=geojson";
 
 /* =========================
-   COUNTIES (YOU MUST PROVIDE THIS FILE)
+   COUNTIES (Census Bureau TIGERweb API)
 ========================= */
-const COUNTY_URL = "/counties.geojson";
+const COUNTY_URL = '/api/census/counties';
+
+const FIPS_TO_STATE = {
+  "01":"AL","02":"AK","04":"AZ","05":"AR","06":"CA","08":"CO","09":"CT",
+  "10":"DE","11":"DC","12":"FL","13":"GA","15":"HI","16":"ID","17":"IL",
+  "18":"IN","19":"IA","20":"KS","21":"KY","22":"LA","23":"ME","24":"MD",
+  "25":"MA","26":"MI","27":"MN","28":"MS","29":"MO","30":"MT","31":"NE",
+  "32":"NV","33":"NH","34":"NJ","35":"NM","36":"NY","37":"NC","38":"ND",
+  "39":"OH","40":"OK","41":"OR","42":"PA","44":"RI","45":"SC","46":"SD",
+  "47":"TN","48":"TX","49":"UT","50":"VT","51":"VA","53":"WA","54":"WV",
+  "55":"WI","56":"WY","60":"AS","66":"GU","69":"MP","72":"PR","78":"VI",
+};
 
 /* =========================
    CWA LAYER (FIX FOR MIDWEST)
@@ -38,10 +49,14 @@ const CWA_URL =
 async function fetchJSON(url) {
   try {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Fetch failed: ${url}`);
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${url}`);
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('json') && !ct.includes('geojson')) {
+      throw new Error(`Non-JSON response (${ct}) from ${url}`);
+    }
     return await res.json();
   } catch (err) {
-    console.warn(err.message);
+    console.warn('[WeatherAlerts]', err.message);
     return null;
   }
 }
@@ -370,7 +385,9 @@ export function useWeatherAlerts() {
       const map = new Map();
 
       counties.features.forEach((f) => {
-        const key = f.properties.STATE_ABBR + "C" + f.properties.COUNTYFP;
+        const stateAbbr = FIPS_TO_STATE[f.properties.STATE];
+        if (!stateAbbr) return;
+        const key = stateAbbr + "C" + f.properties.COUNTY;
         map.set(key, f.geometry);
       });
 

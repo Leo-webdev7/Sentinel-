@@ -26,6 +26,27 @@ const FIRIS_BASE =
   '/CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query';
 
 /**
+ * Retry a function with exponential backoff.
+ * Mitigates transient ERR_HTTP2_PROTOCOL_ERROR from ArcGIS on large payloads.
+ */
+async function withRetry(fn, { attempts = 3, baseDelayMs = 1000 } = {}) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (i < attempts - 1) {
+        const delay = baseDelayMs * Math.pow(2, i);
+        console.warn(`[NIFC] Attempt ${i + 1}/${attempts} failed, retrying in ${delay}ms:`, err.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
+/**
  * Fetch current fire perimeters from NIFC WFIGS.
  * @param {object} [opts]
  * @param {number} [opts.minAcres=100]  Filter perimeters below this size
@@ -38,7 +59,21 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
 
   const params = new URLSearchParams({
     where: whereClause,
-    outFields: '*',
+    outFields: [
+      'attr_UniqueFireIdentifier',
+      'attr_IncidentName',
+      'poly_IncidentName',
+      'poly_GISAcres',
+      'attr_PercentContained',
+      'attr_FireDiscoveryDateTime',
+      'attr_ModifiedOnDateTime_dt',
+      'attr_POOState',
+      'attr_POOCounty',
+      'attr_IncidentManagementOrg',
+      'attr_TotalIncidentPersonnel',
+      'attr_IncidentTypeCategory',
+      'attr_FireCause',
+    ].join(','),
     outSR: '4326',
     f: 'geojson',
   });
@@ -47,7 +82,9 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
   const cacheKey = `nifc:perimeters:all:${minAcres}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    const data = await withRetry(() =>
+      fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000),
+    );
     if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
     if (data?.features) return normalizePerimeters(data);
     throw new Error('Unexpected response format');
@@ -93,7 +130,21 @@ function normalizePerimeters(geojson) {
 export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
   const params = new URLSearchParams({
     where: '1=1',
-    outFields: '*',
+    outFields: [
+      'irwinid',
+      'incident_name',
+      'gis_acres',
+      'perc_contnd',
+      'percent_contained',
+      'fire_discovery_datetime',
+      'date_current',
+      'state',
+      'county',
+      'inci_mgmt_org',
+      'total_personnel',
+      'inc_type_cat',
+      'fire_cause',
+    ].join(','),
     outSR: '4326',
     f: 'geojson',
   });
@@ -102,7 +153,9 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
   const cacheKey = `nifc:firis:ca:${minAcres}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    const data = await withRetry(() =>
+      fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000),
+    );
     if (data?.error) throw new Error(data.error.message || 'ArcGIS FIRIS error');
     if (!data?.features) throw new Error('Unexpected FIRIS response format');
 

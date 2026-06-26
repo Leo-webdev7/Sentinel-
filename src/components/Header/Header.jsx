@@ -15,7 +15,7 @@ import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
-const GIVEBUTTER_WIDGET_SRC = 'https://widgets.givebutter.com/latest.umd.cjs?acct=Or6BK2q5Cpxxn9Xl&p=other';
+const GIVEBUTTER_WIDGET_ID = 'j1X43O';
 
 const Header = memo(function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
@@ -37,11 +37,11 @@ const Header = memo(function Header({ onRefresh }) {
   }, []);
 
   useEffect(() => {
-    const existingScript = document.querySelector(`script[src="${GIVEBUTTER_WIDGET_SRC}"]`);
+    const existingScript = document.querySelector('script[src*="givebutter.com"]');
     if (existingScript) return;
 
     const script = document.createElement('script');
-    script.src = GIVEBUTTER_WIDGET_SRC;
+    script.src = 'https://widgets.givebutter.com/latest.umd.cjs?acct=Or6BK2q5Cpxxn9Xl&p=other';
     script.async = true;
     script.defer = true;
     document.body.appendChild(script);
@@ -158,7 +158,7 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Donation widget */}
           <div className="hidden sm:block">
-            <givebutter-widget id="g6WWrD"></givebutter-widget>
+            <givebutter-widget id={GIVEBUTTER_WIDGET_ID}></givebutter-widget>
           </div>
 
           {/* Last updated */}
