@@ -16,22 +16,34 @@ const EVAC_BASE =
   '/CA_EVACUATIONS_PROD/FeatureServer/0/query';
 
 /**
+ * Build an ArcGIS-compatible TIMESTAMP literal for use in WHERE clauses.
+ * ArcGIS requires: TIMESTAMP 'YYYY-MM-DD HH:MM:SS'
+ */
+function arcgisTimestamp(date) {
+  return `TIMESTAMP '${date.toISOString().replace('T', ' ').substring(0, 19)}'`;
+}
+
+/**
  * Fetch active California evacuation zones.
  * @returns {Promise<object>} GeoJSON FeatureCollection
  */
 export async function fetchCaEvacuations() {
+  const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
   const params = new URLSearchParams({
-    where: '1=1',
+    where: `EDIT_DATE > ${arcgisTimestamp(cutoff)}`,
     outFields: [
-      'Zone_Status',
-      'Zone_Name',
-      'IncidentName',
-      'Agency',
-      'Date_Time_Issued',
-      'Last_Update',
-      'Comments',
-      'Jurisdiction',
-      'Instructions',
+      'OBJECTID',
+      'COUNTY',
+      'CITY',
+      'ZONE_NAME',
+      'ZONE_ID',
+      'STATUS',
+      'EVENT_TYPE',
+      'CRITICAL_INFO',
+      'PUBLIC_INFO',
+      'EDIT_DATE',
+      'STATEWIDE_LAST_UPDATED',
+      'NOTES',
     ].join(','),
     f: 'geojson',
     outSR: '4326',
@@ -39,7 +51,7 @@ export async function fetchCaEvacuations() {
   });
 
   const url = `${EVAC_BASE}?${params}`;
-  const cacheKey = 'ca:evacuations';
+  const cacheKey = `ca:evacuations:${cutoff.getTime()}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
@@ -64,15 +76,15 @@ function normalizeEvacuations(geojson) {
       return {
         ...f,
         properties: {
-          Zone_Status:       p.Zone_Status       || p.Status          || p.zone_status    || 'Evacuation Order',
-          Zone_Name:         p.Zone_Name         || p.Name            || p.zone_name      || 'Evacuation Zone',
-          IncidentName:      p.IncidentName      || p.Incident_Name   || p.incident_name  || '',
-          Agency:            p.Agency            || p.agency          || '',
-          Date_Time_Issued:  p.Date_Time_Issued  || p.Date_Issued     || p.start_date     || null,
-          Last_Update:       p.Last_Update       || p.Last_Updated    || p.last_update    || null,
-          Comments:          p.Comments          || p.Description     || p.comments       || '',
-          Jurisdiction:      p.Jurisdiction      || p.County          || p.jurisdiction   || '',
-          Instructions:      p.Instructions      || p.instructions    || '',
+          Zone_Status:       p.STATUS        || 'Evacuation Order',
+          Zone_Name:         p.ZONE_NAME     || p.ZONE_ID || 'Evacuation Zone',
+          IncidentName:      p.EVENT_TYPE    || '',
+          Agency:            p.CITY          || '',
+          Date_Time_Issued:  p.EDIT_DATE     || null,
+          Last_Update:       p.STATEWIDE_LAST_UPDATED || p.EDIT_DATE || null,
+          Comments:          p.CRITICAL_INFO || p.NOTES || '',
+          Jurisdiction:      p.COUNTY        || '',
+          Instructions:      p.PUBLIC_INFO   || '',
         },
       };
     }),

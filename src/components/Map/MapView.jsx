@@ -1395,6 +1395,7 @@ export default function MapView({
       )}
 
       <Map
+        key={mapType}
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
