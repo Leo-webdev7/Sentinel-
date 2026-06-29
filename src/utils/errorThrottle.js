@@ -107,7 +107,7 @@ export function throttleError(tag, message, error = null, opts = {}) {
   }
   
   // Always return friendly message for UI
-  return getFriendlyMessage(tag.replace(/[\[\]]/g, '').trim(), friendlyType);
+  return getFriendlyMessage(tag.replaceAll('[', '').replaceAll(']', '').trim(), friendlyType);
 }
 
 /**
