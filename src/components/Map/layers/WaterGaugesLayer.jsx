@@ -1,14 +1,14 @@
 /**
  * WaterGaugesLayer.jsx
  * NOAA NWPS water gauges rendered as color-coded circles by flood category.
- * Visible at zoom >= 5 to avoid overwhelming the map at continental scale.
+ * Visible at zoom >= 3 (visible at the default US overview zoom of 4.5).
  */
 
 import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
-const MIN_ZOOM = 5;
+const MIN_ZOOM = 3;
 
 // Color by flood category (matches NOAA color conventions)
 const CATEGORY_COLOR = [

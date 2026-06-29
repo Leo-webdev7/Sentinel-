@@ -21,10 +21,14 @@ const HEADERS = {
 
 /** Convert the NWPS gauge list response into a GeoJSON FeatureCollection. */
 function gaugesToGeoJSON(gauges) {
+  if (gauges.length > 0) {
+    console.log('[NWPS] First gauge raw keys:', Object.keys(gauges[0]), gauges[0]);
+  }
   const features = [];
   for (const g of gauges) {
-    const lat = g.latitude ?? g.lat;
-    const lon = g.longitude ?? g.lon ?? g.lng;
+    // Handle coordinates from direct properties or nested geometry
+    const lat = g.latitude ?? g.lat ?? g.geometry?.coordinates?.[1];
+    const lon = g.longitude ?? g.lon ?? g.lng ?? g.geometry?.coordinates?.[0];
     if (lat == null || lon == null) continue;
 
     const flood = g.flood ?? {};
