@@ -90,10 +90,27 @@ The FIRIS (Fire Information for Resource Integration System) data source for Cal
 - **SC-003**: Console error messages reduced by 80% compared to current production state
 - **SC-004**: Users can view fire tracking data within 5 seconds of page load under normal conditions
 
+## Clarifications
+
+### Session 2026-06-29
+
+- Q: Which Supabase project ID is correct for production? → A: `hmtavsjepgefjhwcqqhd` (CEI's production Supabase — production uses CEI's URL and Anon Key, not the local `.env` values)
+- Q: Why does the CORS error occur? → A: The `firms-proxy` edge function is NOT deployed to the `hmtavsjepgefjhwcqqhd` Supabase project. When the browser sends an OPTIONS preflight request to a non-existent function, Supabase returns an error (not HTTP 200), which triggers the CORS block.
+
+**Root Cause**: The Supabase edge functions (`firms-proxy`, etc.) have never been deployed to the production Supabase project (`hmtavsjepgefjhwcqqhd`). There is no `config.toml`, no `.supabase/` directory, no deploy scripts, and no CI/CD pipeline for edge function deployment. The functions exist in the codebase but are not live on the production Supabase project.
+
+**Fix**: Deploy the edge functions to the production Supabase project:
+1. Link the project: `supabase link --project-ref hmtavsjepgefjhwcqqhd`
+2. Set secrets: `supabase secrets set NASA_FIRMS_API_KEY=<key>`
+3. Deploy functions: `supabase functions deploy firms-proxy`
+4. Repeat for other edge functions as needed
+
 ## Assumptions
 
-- The CORS configuration on the Supabase edge function needs to be updated to allow requests from nationalwildfiretrackingteam.org
-- The FIRMS edge function proxy code handles error responses from the upstream FIRMS API
+- The production Supabase project is `hmtavsjepgefjhwcqqhd` (CEI's project, confirmed by user)
+- The local `.env` file contains a different project (`phcjcwrymsvjzedtysao`) for local development only
+- The edge functions need to be deployed to the production Supabase project
+- The `NASA_FIRMS_API_KEY` secret needs to be set in the production Supabase project
 - The FIRIS ArcGIS service may have temporary availability issues that require graceful handling
 - The production website uses standard browser security policies that enforce CORS
 - The existing fallback mechanism for FIRMS data is intended behavior that needs proper error handling
