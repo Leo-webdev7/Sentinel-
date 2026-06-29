@@ -12,12 +12,11 @@
 
 import { getCached, setCached } from '../utils/dataCache';
 
-const BASE = 'https://api.water.noaa.gov/nwps/v1';
+// Requests are routed through /api/nwps to avoid CORS issues (Vite proxy in
+// dev, Netlify edge function in production).
+const BASE = '/api/nwps';
 
-const HEADERS = {
-  'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
-  Accept: 'application/json',
-};
+const HEADERS = { Accept: 'application/json' };
 
 /** Convert the NWPS gauge list response into a GeoJSON FeatureCollection. */
 function gaugesToGeoJSON(gauges) {

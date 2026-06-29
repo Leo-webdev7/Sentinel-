@@ -97,6 +97,13 @@ export default defineConfig({
         },
         rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
       },
+      // NOAA NWPS – api.water.noaa.gov lacks CORS headers
+      '/api/nwps': {
+        target: 'https://api.water.noaa.gov/nwps/v1',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
+      },
     },
   },
   preview: {
@@ -138,6 +145,13 @@ export default defineConfig({
           'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
         },
         rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
+      },
+      // NOAA NWPS – api.water.noaa.gov lacks CORS headers
+      '/api/nwps': {
+        target: 'https://api.water.noaa.gov/nwps/v1',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
     },
   },
