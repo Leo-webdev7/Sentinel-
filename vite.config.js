@@ -88,6 +88,15 @@ export default defineConfig({
           return `/gis/forecast/archive/${file}`;
         },
       },
+      '/api/census/counties': {
+        target: 'https://tigerweb.geo.census.gov',
+        changeOrigin: true,
+        headers: {
+          Accept: 'application/json, application/geo+json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+        },
+        rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
+      },
     },
   },
   preview: {
@@ -120,6 +129,15 @@ export default defineConfig({
           const file = new URLSearchParams(qs).get('file') || '';
           return `/gis/forecast/archive/${file}`;
         },
+      },
+      '/api/census/counties': {
+        target: 'https://tigerweb.geo.census.gov',
+        changeOrigin: true,
+        headers: {
+          Accept: 'application/json, application/geo+json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+        },
+        rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
       },
     },
   },

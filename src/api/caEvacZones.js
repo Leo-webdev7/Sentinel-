@@ -19,6 +19,14 @@ const CAEVAC_BASE =
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 /**
+ * Build an ArcGIS-compatible TIMESTAMP literal for use in WHERE clauses.
+ * ArcGIS requires: TIMESTAMP 'YYYY-MM-DD HH:MM:SS'
+ */
+function arcgisTimestamp(date) {
+  return `TIMESTAMP '${date.toISOString().replace('T', ' ').substring(0, 19)}'`;
+}
+
+/**
  * Fetch active California evacuation zones as a GeoJSON FeatureCollection.
  * Always resolves – returns empty FeatureCollection on any error so the map
  * layer can degrade gracefully without breaking the rest of the app.
@@ -26,8 +34,9 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
  * @returns {Promise<object>}  GeoJSON FeatureCollection
  */
 export async function fetchCAEvacZones() {
+  const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
   const params = new URLSearchParams({
-    where:             '1=1',
+    where:             `EditDate > ${arcgisTimestamp(cutoff)}`,
     outFields:         '*',
     f:                 'geojson',
     outSR:             '4326',
@@ -35,7 +44,7 @@ export async function fetchCAEvacZones() {
   });
 
   const url      = `${CAEVAC_BASE}?${params}`;
-  const cacheKey = 'caevac:zones';
+  const cacheKey = `caevac:zones:${cutoff.getTime()}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
@@ -103,7 +112,7 @@ function normalizeEvacZones(geojson) {
 
         const rawType = pick(
           p,
-          'WarningType', 'warning_type', 'Status', 'status',
+          'STATUS', 'Status', 'status', 'WarningType', 'warning_type',
           'EvacStatus', 'evac_status', 'Type', 'type', 'ExZoneStatus',
         );
 
@@ -111,11 +120,11 @@ function normalizeEvacZones(geojson) {
           ...f,
           properties: {
             id:             pick(p, 'OBJECTID', 'ObjectID', 'GlobalID', 'globalid') ?? '',
-            zoneName:       pick(p, 'ZoneName', 'zone_name', 'Name', 'name', 'ZoneID', 'ExZoneName') || 'Evacuation Zone',
+            zoneName:       pick(p, 'ZONE_NAME', 'ZoneName', 'zone_name', 'Name', 'name', 'ExZoneName') || pick(p, 'ZONE_ID', 'ZoneID') || 'Evacuation Zone',
             warningType:    normalizeWarningType(rawType),
-            county:         pick(p, 'County', 'county', 'COUNTY', 'CountyName', 'county_name') || '',
+            county:         pick(p, 'COUNTY', 'County', 'county', 'CountyName', 'county_name') || '',
             externalURL:    pick(p, 'ExternalURL', 'external_url', 'URL', 'url', 'MoreInfo') || '',
-            effectiveDate:  pick(p, 'EffectiveDate', 'effective_date', 'DateEffective', 'DateTimeEffective', 'created_date') || null,
+            effectiveDate:  pick(p, 'EditDate', 'EDIT_DATE', 'EffectiveDate', 'effective_date', 'DateEffective', 'DateTimeEffective', 'created_date') || null,
             expirationDate: pick(p, 'ExpirationDate', 'expiration_date', 'DateExpires', 'DateTimeExpires', 'expire_date') || null,
           },
         };

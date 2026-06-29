@@ -10,6 +10,29 @@ import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 const TABLE = 'reporter_evac_zones';
 
 /**
+ * Module-level flag: once we learn the table doesn't exist we never
+ * query it again, avoiding the noisy 404 from the Supabase client.
+ * null = unknown, true = exists, false = missing
+ */
+let tableAvailable = null;
+
+async function checkTableExists() {
+  if (tableAvailable !== null) return tableAvailable;
+  try {
+    const { error } = await supabase.from(TABLE).select('id').limit(1);
+    // PGRST116 = relation does not exist
+    if (error && (error.code === 'PGRST116' || error.status === 404 || String(error.message).includes('404'))) {
+      tableAvailable = false;
+    } else {
+      tableAvailable = true;
+    }
+  } catch {
+    tableAvailable = false;
+  }
+  return tableAvailable;
+}
+
+/**
  * Fetch reporter-drawn evac zones.
  * @param {'active'|'all'} status
  *   'active'  → only zones in status='active' (public map view)
@@ -26,6 +49,14 @@ export function useReporterEvacZones(status = 'active') {
       setLoading(false);
       return;
     }
+
+    const exists = await checkTableExists();
+    if (!exists) {
+      setZones([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     let q = supabase
@@ -37,8 +68,13 @@ export function useReporterEvacZones(status = 'active') {
 
     const { data, error: err } = await q;
     if (err) {
-      setError(err);
-      setZones([]);
+      if (err.code === 'PGRST116' || String(err.message).includes('404')) {
+        tableAvailable = false;
+        setZones([]);
+      } else {
+        setError(err);
+        setZones([]);
+      }
     } else {
       setError(null);
       setZones(data || []);
@@ -50,14 +86,16 @@ export function useReporterEvacZones(status = 'active') {
 
   // Realtime: re-apply local filter on any change
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    if (!isSupabaseConfigured || tableAvailable === false) return undefined;
 
-    const channel = supabase
-      .channel(`reporter_evac_zones_${status}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: TABLE },
-        (payload) => {
+    let channel;
+    try {
+      channel = supabase
+        .channel(`reporter_evac_zones_${status}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: TABLE },
+          (payload) => {
           setZones((prev) => {
             const row = payload.new || payload.old;
             if (!row) return prev;
@@ -85,8 +123,11 @@ export function useReporterEvacZones(status = 'active') {
         }
       )
       .subscribe();
+    } catch {
+      return undefined;
+    }
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [status]);
 
   return { zones, loading, error, refresh: load };

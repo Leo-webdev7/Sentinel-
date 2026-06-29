@@ -41,6 +41,10 @@
   function = "calfire-proxy"
   path = "/api/calfire"
 
+[[edge_functions]]
+  function = "census-counties-proxy"
+  path = "/api/census/counties"
+
 # ✅ HOME REDIRECT (MUST be above fallback)
 [[redirects]]
   from = "/"
