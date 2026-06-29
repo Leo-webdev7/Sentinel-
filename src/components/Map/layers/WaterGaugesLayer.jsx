@@ -1,14 +1,14 @@
 /**
  * WaterGaugesLayer.jsx
  * NOAA NWPS water gauges rendered as color-coded circles by flood category.
- * Visible at zoom >= 3 (visible at the default US overview zoom of 4.5).
+ * Visible at all zoom levels.
  */
 
 import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
-const MIN_ZOOM = 3;
+const MIN_ZOOM = 0;
 
 // Color by flood category (matches NOAA color conventions)
 const CATEGORY_COLOR = [
@@ -33,7 +33,7 @@ const WaterGaugesLayer = memo(function WaterGaugesLayer({ geoJSON, visible }) {
         minzoom={MIN_ZOOM}
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 8, 10, 18],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 4, 5, 8, 10, 18],
           'circle-color': CATEGORY_COLOR,
           'circle-opacity': 0.18,
           'circle-blur': 0.7,
@@ -48,7 +48,7 @@ const WaterGaugesLayer = memo(function WaterGaugesLayer({ geoJSON, visible }) {
         minzoom={MIN_ZOOM}
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 3, 8, 5, 12, 8],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 5, 3, 8, 5, 12, 8],
           'circle-color': CATEGORY_COLOR,
           'circle-opacity': 0.95,
           'circle-stroke-color': '#ffffff',
