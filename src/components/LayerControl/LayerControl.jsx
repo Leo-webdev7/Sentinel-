@@ -145,6 +145,10 @@ const TAB_SECTIONS = {
       subtitle: 'Stations, sensors, and air quality',
       groups: [
         {
+          label: 'Flood & water',
+          layers: ['waterGauges'],
+        },
+        {
           label: 'Stations',
           layers: ['rawsStations', 'airNowMonitors'],
         },

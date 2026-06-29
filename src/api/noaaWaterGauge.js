@@ -67,8 +67,26 @@ export async function fetchWaterGauges() {
   if (!res.ok) throw new Error(`NWPS gauges HTTP ${res.status}`);
 
   const json = await res.json();
-  // API returns { gauges: [...] } or directly an array
-  const list = Array.isArray(json) ? json : (json.gauges ?? json.data ?? []);
+  // API returns { gauges: [...] } or directly an array or a GeoJSON FeatureCollection
+  let list;
+  if (Array.isArray(json)) {
+    list = json;
+  } else if (Array.isArray(json.gauges)) {
+    list = json.gauges;
+  } else if (Array.isArray(json.data)) {
+    list = json.data;
+  } else if (json.type === 'FeatureCollection' && Array.isArray(json.features)) {
+    // Some NWPS endpoints return GeoJSON directly; extract properties + geometry
+    list = json.features.map(f => ({
+      ...f.properties,
+      latitude: f.geometry?.coordinates?.[1],
+      longitude: f.geometry?.coordinates?.[0],
+    }));
+  } else {
+    console.warn('[NWPS] Unexpected /gauges response shape:', Object.keys(json));
+    list = [];
+  }
+  console.log(`[NWPS] Loaded ${list.length} gauges`);
   const geoJSON = gaugesToGeoJSON(list);
 
   setCached(cacheKey, geoJSON, 5 * 60 * 1000);
