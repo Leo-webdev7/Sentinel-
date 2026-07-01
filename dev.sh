@@ -6,8 +6,8 @@ IPAWS_PID=$!
 
 echo "ipaws-server started (PID: $IPAWS_PID) on port 3847"
 
-# Run vite (bun run dev)
-bun run dev
+# Run vite dev server
+npm run dev
 
 # Cleanup: kill ipaws-server when vite exits
 kill $IPAWS_PID 2>/dev/null
