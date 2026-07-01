@@ -44,6 +44,7 @@ import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
+import WaterGaugesLayer from './layers/WaterGaugesLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -631,6 +632,36 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'water-gauges-circle': {
+      const stage = p.currentStage != null ? `${Number(p.currentStage).toFixed(2)} ft` : 'N/A';
+      const catColors = {
+        major: 'text-purple-400', moderate: 'text-red-400',
+        minor: 'text-orange-400', action: 'text-yellow-300',
+      };
+      const catLabel = {
+        major: 'Major Flooding', moderate: 'Moderate Flooding',
+        minor: 'Minor Flooding', action: 'Action Stage', no_flooding: 'Normal',
+      }[p.floodCategory] ?? 'No Data';
+      const catClass = catColors[p.floodCategory] ?? 'text-blue-400';
+      content = (
+        <>
+          <div className="font-semibold text-blue-300">{p.name || p.lid}</div>
+          {(p.county || p.state) && (
+            <div className="text-gray-400 text-[10px]">
+              {[p.county && `${p.county} Co.`, p.state].filter(Boolean).join(', ')}
+            </div>
+          )}
+          <div className="mt-1 space-y-0.5">
+            <div className="text-gray-300 text-xs">
+              Stage: <span className="text-white font-medium">{stage}</span>
+            </div>
+            <div className={`text-xs font-medium ${catClass}`}>{catLabel}</div>
+          </div>
+          <div className="text-gray-500 text-[10px] mt-1">Click for details · NOAA NWPS</div>
+        </>
+      );
+      break;
+    }
     case 'national-map-colleges-circle': {
       const name = p.NAME || p.name || 'School / university';
       content = (
@@ -823,8 +854,9 @@ export default function MapView({
   onMeasureActivate,
   onMeasureClose,
   precipRingActive = false,
+  waterGaugesGeoJSON,
 }) {
-  const { layers, alerts, selectFire, viewport, setViewport, sidebarOpen } = useApp();
+  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -1007,6 +1039,7 @@ export default function MapView({
       if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
+    if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
@@ -1018,7 +1051,8 @@ export default function MapView({
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
-      nhcCentersGeoJSON]);
+      nhcCentersGeoJSON,
+      layers.waterGauges, waterGaugesGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1037,6 +1071,7 @@ export default function MapView({
     const features = evt.features;
     if (!features?.length) {
       selectFire(null);
+      selectGauge(null);
       setSelectedFlight(null);
       setSelectedFlightLngLat(null);
       return;
@@ -1044,6 +1079,11 @@ export default function MapView({
 
     const feature = features[0];
     const p = feature.properties;
+
+    if (feature.layer.id === 'water-gauges-circle') {
+      selectGauge(feature.properties);
+      return;
+    }
 
     if (feature.layer.id === 'flights-symbol') {
       setSelectedFlight(feature.properties);
@@ -1299,7 +1339,7 @@ export default function MapView({
         window.open(p.url, '_blank', 'noopener,noreferrer');
       }
     }
-  }, [measureActive, alerts, selectFire]);
+  }, [measureActive, alerts, selectFire, selectGauge]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -1561,6 +1601,12 @@ export default function MapView({
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* NOAA NWPS water gauges */}
+        <WaterGaugesLayer
+          geoJSON={waterGaugesGeoJSON}
+          visible={layers.waterGauges}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}

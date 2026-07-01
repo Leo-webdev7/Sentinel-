@@ -33,6 +33,7 @@ import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
+import { useWaterGauges } from '../hooks/useWaterGauges';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 
@@ -44,6 +45,7 @@ import MapView from '../components/Map/MapView';
 import LayerControl from '../components/LayerControl/LayerControl';
 import Legend from '../components/Legend/Legend';
 import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
+import WaterGaugePanel from '../components/WaterGaugePanel/WaterGaugePanel';
 
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
@@ -201,7 +203,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge } = useApp();
   const { hasProInfrastructureAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -479,6 +481,11 @@ const flightBounds = useMemo(() => {
     stormLabelsGeoJSON: nhcStormLabelsGeoJSON,
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
+
+  // NOAA NWPS water gauges
+  const {
+    geoJSON: waterGaugesGeoJSON,
+  } = useWaterGauges(layers.waterGauges);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -853,6 +860,7 @@ const flightBounds = useMemo(() => {
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
+            waterGaugesGeoJSON={waterGaugesGeoJSON}
           />
 
           <LayerControl
@@ -875,6 +883,12 @@ const flightBounds = useMemo(() => {
             fireWxOutlookType={fireWxOutlookType}
           />
           <FireDetailPanel />
+          {selectedGauge && (
+            <WaterGaugePanel
+              gauge={selectedGauge}
+              onClose={() => selectGauge(null)}
+            />
+          )}
 
           {/* Bug report button – fixed to bottom-right of map area */}
           <a

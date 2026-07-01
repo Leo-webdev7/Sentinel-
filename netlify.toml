@@ -45,6 +45,10 @@
   function = "census-counties-proxy"
   path = "/api/census/counties"
 
+[[edge_functions]]
+  function = "nwps-proxy"
+  path = "/api/nwps/*"
+
 # ✅ HOME REDIRECT (MUST be above fallback)
 [[redirects]]
   from = "/"
