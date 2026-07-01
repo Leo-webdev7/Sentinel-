@@ -5,13 +5,6 @@ coverage/
 *.local
 .DS_Store
 supabase/.temp/
-supabase/.gitignore
-supabase/config.toml
 .env
 playwright-report/
 test-results/
-.opencode/
-.agents/
-.specify/
-specs/
-AGENTS.md
