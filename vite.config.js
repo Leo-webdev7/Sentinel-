@@ -118,13 +118,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
-      // NOAA NWPS – api.water.noaa.gov lacks CORS headers
-      '/api/nwps': {
-        target: 'https://api.water.noaa.gov/nwps/v1',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
-      },
     },
   },
   preview: {
@@ -187,13 +180,6 @@ export default defineConfig({
         target: 'https://mapservices.weather.noaa.gov',
         changeOrigin: true,
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
-      },
-      // NOAA NWPS – api.water.noaa.gov lacks CORS headers
-      '/api/nwps': {
-        target: 'https://api.water.noaa.gov/nwps/v1',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
     },
   },
