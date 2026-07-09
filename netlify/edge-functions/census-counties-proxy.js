@@ -12,9 +12,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-const TIGERWEB_QUERY =
+const TIGERWEB_BASE =
   'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query' +
-  '?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000';
+  '?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') {
@@ -22,7 +22,12 @@ export default async (request) => {
   }
 
   try {
-    const resp = await fetch(TIGERWEB_QUERY, {
+    const url = new URL(request.url);
+    const count = url.searchParams.get('resultRecordCount') || '500';
+    const offset = url.searchParams.get('resultOffset') || '0';
+    const queryUrl = `${TIGERWEB_BASE}&resultRecordCount=${count}&resultOffset=${offset}`;
+
+    const resp = await fetch(queryUrl, {
       headers: {
         Accept: 'application/json, application/geo+json, text/plain, */*',
         'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',

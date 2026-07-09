@@ -51,6 +51,8 @@ const initialState = {
   legendOpen: true,
   // Active weather alerts list
   alerts: [],
+  // Pipeline status for weather alerts (error, loading per-alert-system)
+  alertsStatus: { loading: false, error: null, errorDetail: null, lastRefresh: null },
   // Sidebar feed filter: 'all' or 'focused' (hides old/contained fires)
   feedFilter: 'all',
   // Last time data was refreshed
@@ -76,6 +78,7 @@ const A = {
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
   SET_ALERTS:         'SET_ALERTS',
+  SET_ALERTS_STATUS:  'SET_ALERTS_STATUS',
   SET_LOADING:        'SET_LOADING',
   SET_REFRESHED:      'SET_REFRESHED',
   SET_VIEWPORT:       'SET_VIEWPORT',
@@ -109,6 +112,8 @@ function reducer(state, action) {
       return { ...state, legendOpen: !state.legendOpen };
     case A.SET_ALERTS:
       return { ...state, alerts: action.alerts };
+    case A.SET_ALERTS_STATUS:
+      return { ...state, alertsStatus: { ...state.alertsStatus, ...action.status } };
     case A.SET_LOADING:
       return { ...state, isLoading: action.value };
     case A.SET_REFRESHED:
@@ -137,6 +142,7 @@ export function AppProvider({ children }) {
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
   const setAlerts        = useCallback((alerts) => dispatch({ type: A.SET_ALERTS, alerts }), []);
+  const setAlertsStatus  = useCallback((status) => dispatch({ type: A.SET_ALERTS_STATUS, status }), []);
   const setLoading       = useCallback((value) => dispatch({ type: A.SET_LOADING, value }), []);
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
@@ -166,6 +172,7 @@ export function AppProvider({ children }) {
       toggleLayerPanel,
       toggleLegend,
       setAlerts,
+      setAlertsStatus,
       setLoading,
       setRefreshed,
       setViewport,

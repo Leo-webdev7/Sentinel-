@@ -16,10 +16,14 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronRight,
+  MapPin,
+  Clock,
+  Globe,
 } from 'lucide-react';
 import { nwsAlertColor, nwsAlertCategory } from '../../utils/nwsColors';
 import { useApp } from '../../context/AppContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
+import AlertErrorBanner from './AlertErrorBanner';
 
 const NAVY = '#1D2951';
 const MAROON = '#8B0000';
@@ -294,6 +298,34 @@ function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
           Expires {formatRelativeTime(alert.expires)}
         </p>
       )}
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            alert.geometry
+              ? 'bg-green-100 text-green-800'
+              : 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          <MapPin size={10} />
+          {alert.geometry ? 'On map' : 'Text only'}
+        </span>
+        {alert.expires && new Date(alert.expires).getTime() - Date.now() < 30 * 60 * 1000 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800">
+            <Clock size={10} />
+            Expiring soon
+          </span>
+        )}
+        {alert.source && (
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            alert.source === 'fema'
+              ? 'bg-purple-100 text-purple-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}>
+            <Globe size={10} />
+            {alert.source === 'fema' ? 'FEMA' : 'NWS'}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -399,8 +431,9 @@ export default function WeatherAlertsFeed({
   error,
   activeFilter = 'all',
   onFilterChange,
+  onRefresh,
 }) {
-  const { selectFire, setViewport, selectedFire, clearSelected } = useApp();
+  const { selectFire, setViewport, selectedFire, clearSelected, alertsStatus } = useApp();
 
   const [expandedCategories, setExpandedCategories] = useState(() => new Set(['warning']));
   const [expandedTypes, setExpandedTypes] = useState(() => new Set());
@@ -507,7 +540,14 @@ export default function WeatherAlertsFeed({
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 pb-3 px-1">
-        {loading && (
+        <AlertErrorBanner
+          error={alertsStatus?.error || error}
+          detail={alertsStatus?.errorDetail}
+          staleCount={alerts.length}
+          onRetry={onRefresh}
+        />
+
+        {loading && filtered.length === 0 && (
           <div className="flex items-center justify-center gap-2 py-8 text-sentinel-200">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">Loading active alerts…</span>
