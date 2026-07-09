@@ -305,6 +305,9 @@ export default function LiveTrackerPage() {
     geoJSON: alertsGeoJSON,
     loading: alertsLoading,
     error: alertsError,
+    alertCount,
+    geoCount,
+    lastRefresh: alertsLastRefresh,
     refresh: refreshAlerts,
   } = useWeatherAlerts();
 
@@ -802,6 +805,7 @@ const flightBounds = useMemo(() => {
           onReopenBanner={() => setBannerDismissed(false)}
           weatherAlertFilter={weatherAlertFilter}
           onWeatherAlertFilterChange={setWeatherAlertFilter}
+          onWeatherAlertsRefresh={refreshAlerts}
         />
 
         {/* Map area */}
