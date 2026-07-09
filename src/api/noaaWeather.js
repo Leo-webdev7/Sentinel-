@@ -10,7 +10,6 @@
  */
 
 import { getCached, setCached } from '../utils/dataCache';
-import { MOCK_WEATHER_ALERTS } from '../data/mockData';
 
 const NOAA_BASE = 'https://api.weather.gov';
 
@@ -46,7 +45,7 @@ function extractPolygonCoords(geom) {
  * @param {object|null} geom
  * @returns {object|null}
  */
-function flattenGeometry(geom) {
+export function flattenGeometry(geom) {
   const coords = extractPolygonCoords(geom);
   if (coords.length === 0) return null;
   if (coords.length === 1) return { type: 'Polygon', coordinates: coords[0] };
@@ -186,8 +185,8 @@ export async function fetchNWSAlerts() {
     setCached(cacheKey, normalized, 5 * 60 * 1000);
     return normalized;
   } catch (err) {
-    console.warn('[NOAA] Using mock alert data:', err.message);
-    return MOCK_WEATHER_ALERTS;
+    console.warn('[NOAA] NWS fetch failed:', err.message);
+    return [];
   }
 }
 
@@ -259,6 +258,7 @@ export function alertsToGeoJSON(alerts) {
           headline: a.headline,
           severity: a.severity,
           expires:  a.expires,
+          source:   a.source || 'NWS',
         },
       })),
   };

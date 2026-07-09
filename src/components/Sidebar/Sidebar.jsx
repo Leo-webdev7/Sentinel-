@@ -41,6 +41,7 @@ const Sidebar = memo(function Sidebar({
   onReopenBanner,
   weatherAlertFilter = 'all',
   onWeatherAlertFilterChange,
+  onWeatherAlertsRefresh,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
@@ -266,6 +267,7 @@ const Sidebar = memo(function Sidebar({
                 error={weatherAlertsError}
                 activeFilter={weatherAlertFilter}
                 onFilterChange={onWeatherAlertFilterChange}
+                onRefresh={onWeatherAlertsRefresh}
               />
             )
           ) : isWeatherTab ? (
@@ -275,6 +277,7 @@ const Sidebar = memo(function Sidebar({
               error={weatherAlertsError}
               activeFilter={weatherAlertFilter}
               onFilterChange={onWeatherAlertFilterChange}
+              onRefresh={onWeatherAlertsRefresh}
             />
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
