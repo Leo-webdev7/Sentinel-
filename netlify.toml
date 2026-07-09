@@ -49,6 +49,10 @@
   function = "nwps-proxy"
   path = "/api/nwps/*"
 
+[[edge_functions]]
+  function = "noaa-proxy"
+  path = "/api/noaa/*"
+
 # ✅ HOME REDIRECT (MUST be above fallback)
 [[redirects]]
   from = "/"
