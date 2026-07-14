@@ -81,7 +81,7 @@ function pick(props, ...keys) {
 
 /**
  * Normalize a raw WarningType / Status value to one of the three canonical
- * strings expected by EvacZonesLayer color-match expression:
+ * strings expected by EvacuationZonesLayer color-match expression:
  *   "Evacuation Order" | "Evacuation Warning" | "Evacuation Watch"
  */
 function normalizeWarningType(raw) {
