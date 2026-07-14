@@ -515,10 +515,12 @@ function AlertDetail({ fire, alerts }) {
             type="button"
             onClick={() => {
               const text = bulletinBody || merged.headline || eventTitle;
+              const shareUrl = new URL(window.location.href);
+              if (merged.id) shareUrl.searchParams.set('alert', merged.id);
               const payload = {
                 title: 'NWTT Weather Alert',
                 text: text.slice(0, 4000),
-                url: window.location.href,
+                url: shareUrl.toString(),
               };
               const canShare =
                 typeof navigator.share === 'function' &&
@@ -1264,11 +1266,21 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     return location ? `${title} (${location})` : title;
   };
 
+  // Builds a deep link that reopens this specific incident/alert on load,
+  // rather than just the ambient page URL (which is the same for every fire).
+  const buildShareUrl = (fire) => {
+    if (!fire?.id) return window.location.href;
+    const url = new URL(window.location.href);
+    const param = fire.type === 'weather-alert' ? 'alert' : 'incident';
+    url.searchParams.set(param, fire.id);
+    return url.toString();
+  };
+
   const handleShare = async () => {
     if (!selectedFire || !isShareableFireType) return;
 
     const shareText = buildShareText(selectedFire);
-    const shareUrl = window.location.href;
+    const shareUrl = buildShareUrl(selectedFire);
     const payload = {
       title: selectedFire.type === 'weather-alert' ? 'NWTT Weather Alert' : 'Sentinel Fire Tracker',
       text: selectedFire.type === 'weather-alert' ? shareText : `Track this fire on Sentinel: ${shareText}`,

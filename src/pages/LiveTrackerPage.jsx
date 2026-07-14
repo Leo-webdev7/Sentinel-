@@ -7,7 +7,8 @@
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -203,7 +204,8 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, alerts, selectFire, flyToFire } = useApp();
+  const [searchParams] = useSearchParams();
   const { hasProInfrastructureAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -644,6 +646,36 @@ const flightBounds = useMemo(() => {
       };
     });
   }, [allIncidents, reporterReports]);
+
+  // ── Deep-link handling ──
+  // A shared incident/alert link carries `?incident=<id>` or `?alert=<id>`.
+  // Once the matching data has loaded, auto-select it so the recipient lands
+  // directly on the fire/alert instead of just the bare map.
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandledRef.current) return;
+
+    const incidentId = searchParams.get('incident');
+    const alertId = searchParams.get('alert');
+    if (!incidentId && !alertId) return;
+
+    if (incidentId) {
+      if (incidentsLoading || calFireLoading) return; // wait for incident data to load
+      const match = mergedIncidents.find(inc => String(inc.id) === incidentId);
+      if (match) {
+        selectFire({ type: 'incident', ...match });
+        flyToFire(match);
+      }
+      deepLinkHandledRef.current = true;
+    } else if (alertId) {
+      if (alertsLoading) return; // wait for alert data to load
+      const match = alerts.find(a => String(a.id) === alertId);
+      if (match) {
+        selectFire({ ...match, type: 'weather-alert', eventType: match.type });
+      }
+      deepLinkHandledRef.current = true;
+    }
+  }, [searchParams, mergedIncidents, incidentsLoading, calFireLoading, alerts, alertsLoading, selectFire, flyToFire]);
 
   // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
   const reporterMatchKeys = useMemo(() => {
