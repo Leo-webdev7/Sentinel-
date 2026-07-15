@@ -25,7 +25,6 @@ const initialState = {
     fireWeatherOutlooks: false,
     radar:             false,
     evacZones:         false,
-    reporterEvacZones: false,
     flights:           false,
     rawsStations:          false,
     airNowMonitors:        false,

@@ -27,8 +27,7 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
-import EvacZonesLayer from './layers/EvacZonesLayer';
-import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
+import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
 import SPCWeatherTabOutlookControls from './SPCWeatherTabOutlookControls';
@@ -314,7 +313,40 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'evac-zones-fill': {
+      const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
+
+      if (isReporter) {
+        const zoneTypeColors = {
+          'evacuation order':   'text-red-400',
+          'evacuation warning': 'text-orange-400',
+          'evacuation watch':   'text-yellow-400',
+        };
+        const ztKey = (p.zone_type || '').toLowerCase();
+        const ztClass = zoneTypeColors[ztKey] || 'text-red-400';
+        content = (
+          <>
+            <div className={`font-semibold ${ztClass}`}>{p.zone_type || 'Evacuation Zone'}</div>
+            {p.title && <div className="text-white text-xs mt-0.5 font-medium">{p.title}</div>}
+            {p.incident_name && (
+              <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
+            )}
+            {(p.county || p.state) && (
+              <div className="text-gray-300 text-xs">
+                {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
+              </div>
+            )}
+            {p.effective_at && (
+              <div className="text-gray-400 text-xs">
+                Effective: {new Date(p.effective_at).toLocaleString()}
+              </div>
+            )}
+            <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
+          </>
+        );
+        break;
+      }
+
       if (isIpaws) {
         content = (
           <>
@@ -351,36 +383,6 @@ function HoverTooltip({ feature, lngLat }) {
           {p.instructions && (
             <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
           )}
-        </>
-      );
-      break;
-    }
-    case 'reporter-evac-zones-fill': {
-      const zoneTypeColors = {
-        'evacuation order':   'text-red-400',
-        'evacuation warning': 'text-orange-400',
-        'evacuation watch':   'text-yellow-400',
-      };
-      const ztKey = (p.zone_type || '').toLowerCase();
-      const ztClass = zoneTypeColors[ztKey] || 'text-red-400';
-      content = (
-        <>
-          <div className={`font-semibold ${ztClass}`}>{p.zone_type || 'Evacuation Zone'}</div>
-          {p.title && <div className="text-white text-xs mt-0.5 font-medium">{p.title}</div>}
-          {p.incident_name && (
-            <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
-          )}
-          {(p.county || p.state) && (
-            <div className="text-gray-300 text-xs">
-              {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
-            </div>
-          )}
-          {p.effective_at && (
-            <div className="text-gray-400 text-xs">
-              Effective: {new Date(p.effective_at).toLocaleString()}
-            </div>
-          )}
-          <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
         </>
       );
       break;
@@ -773,8 +775,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
- * @param {object|null} props.evacZonesGeoJSON
- * @param {object|null} props.reporterEvacZonesGeoJSON
+ * @param {object|null} props.evacZonesGeoJSON - combined official (Cal OES/IPAWS) + reporter-drawn zones
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
@@ -820,7 +821,6 @@ export default function MapView({
   spcMdGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
-  reporterEvacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
@@ -1010,7 +1010,6 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
-    if ((isWildfireTab || isAllHazardTab) && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
@@ -1042,11 +1041,11 @@ export default function MapView({
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
+      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
+      stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
@@ -1257,6 +1256,23 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
+    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
+      selectFire({
+        type:          'reporter-evacuation-zone',
+        id:            p.id || null,
+        name:          p.title || 'Reporter Evacuation Zone',
+        title:         p.title,
+        zone_type:     p.zone_type,
+        incident_name: p.incident_name,
+        description:   p.description,
+        county:        p.county,
+        state:         p.state,
+        effective_at:  p.effective_at,
+        expires_at:    p.expires_at,
+        source:        'reporter',
+        lat:           evt.lngLat.lat,
+        lng:           evt.lngLat.lng,
+      });
     } else if (feature.layer.id === 'evac-zones-fill') {
       const isIpaws = p.source === 'ipaws';
       selectFire({
@@ -1287,23 +1303,6 @@ export default function MapView({
           ipawsInstruction: p.ipawsInstruction,
           ipawsAreaDesc: p.ipawsAreaDesc,
         }),
-      });
-    } else if (feature.layer.id === 'reporter-evac-zones-fill') {
-      selectFire({
-        type:          'reporter-evacuation-zone',
-        id:            p.id || null,
-        name:          p.title || 'Reporter Evacuation Zone',
-        title:         p.title,
-        zone_type:     p.zone_type,
-        incident_name: p.incident_name,
-        description:   p.description,
-        county:        p.county,
-        state:         p.state,
-        effective_at:  p.effective_at,
-        expires_at:    p.expires_at,
-        source:        'reporter',
-        lat:           evt.lngLat.lat,
-        lng:           evt.lngLat.lng,
       });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
@@ -1527,16 +1526,10 @@ export default function MapView({
           opacity={0.9}
         />
 
-        {/* California evacuation zones (official Cal OES feed) */}
-        <EvacZonesLayer
+        {/* Evacuation zones — official Cal OES/IPAWS feeds + reporter-drawn boundaries, combined */}
+        <EvacuationZonesLayer
           geoJSON={evacZonesGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
-        />
-
-        {/* Reporter-drawn evacuation zones */}
-        <ReporterEvacZonesLayer
-          geoJSON={reporterEvacZonesGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.reporterEvacZones}
         />
 
         <CriticalInfrastructureLayer

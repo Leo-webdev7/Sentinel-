@@ -69,8 +69,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesFire18: false,
   spcWeatherOutlooks: false,
   radar: false,
-  evacZones: false,
-  reporterEvacZones: true,
+  evacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -92,8 +91,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   goesWest: false,
   spcWeatherOutlooks: false,
   radar: true,
-  evacZones: false,
-  reporterEvacZones: true,
+  evacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -122,7 +120,6 @@ const WEATHER_LAYER_PRESET = {
   radar: true,
   criticalInfrastructure: false,
   evacZones: false,
-  reporterEvacZones: false,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -365,7 +362,7 @@ export default function LiveTrackerPage() {
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
-    geoJSON: evacZonesGeoJSON,
+    geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
   } = useCombinedEvacZones();
 
@@ -378,6 +375,15 @@ export default function LiveTrackerPage() {
     () => reporterEvacZonesToGeoJSON(reporterEvacZoneRows),
     [reporterEvacZoneRows]
   );
+
+  // Single combined evacuation-zones layer: official feeds + reporter-drawn boundaries
+  const evacZonesGeoJSON = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: [
+      ...(officialEvacZonesGeoJSON?.features || []),
+      ...(reporterEvacZonesGeoJSON?.features || []),
+    ],
+  }), [officialEvacZonesGeoJSON, reporterEvacZonesGeoJSON]);
 
 const flightBounds = useMemo(() => {
   if (!viewport) return null;
@@ -830,7 +836,6 @@ const flightBounds = useMemo(() => {
             spcMdGeoJSON={spcMdGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
-            reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}

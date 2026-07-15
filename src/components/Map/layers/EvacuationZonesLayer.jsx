@@ -1,33 +1,37 @@
 /**
- * EvacZonesLayer.jsx
- * Renders California evacuation orders, warnings, and watches as
- * semi-transparent polygon overlays on the wildfire map tab.
+ * EvacuationZonesLayer.jsx
+ * Renders all evacuation zone polygons — official Cal OES / IPAWS feeds and
+ * field reporter-drawn boundaries — as a single combined map layer.
  *
- * Accepts data from the combined CalOES hosted-view + PROD feed
- * (see useCombinedEvacZones). Both sources are normalised to the
- * same flat schema before being passed here, so this component
- * only needs to handle:
+ * Expects a merged FeatureCollection (official + reporter features
+ * concatenated) where each feature carries whichever schema its source
+ * produces:
  *
- *   warningType – "Evacuation Order" | "Evacuation Warning" | "Evacuation Watch"
- *   zoneName    – display label
- *   county      – county name
- *   agency      – responsible agency (may be empty)
- *   instructions
- *   comments
- *   effectiveDate / expirationDate
- *   externalURL
- *   source      – "hosted" | "prod"
+ *   Official (see useCombinedEvacZones):
+ *     warningType, zoneName, county, agency, jurisdiction, instructions,
+ *     comments, effectiveDate, expirationDate, externalURL,
+ *     source – "hosted" | "prod" | "ipaws"
  *
- * Color scheme mirrors standard Cal OES zone classification:
- *   Order   (mandatory evacuation) → red
- *   Warning (voluntary evacuation) → orange
- *   Watch / Advisory (preparedness) → yellow
+ *   Reporter-drawn (see useReporterEvacZones / reporterEvacZonesToGeoJSON):
+ *     zone_type, title, incident_name, county, state, status,
+ *     effective_at, expires_at, source – "reporter"
+ *
+ * Color scheme mirrors standard Cal OES zone classification regardless of
+ * source (order/warning/watch → red/orange/yellow). Reporter-drawn zones get
+ * a dashed outline + white halo so they read as field-reported rather than
+ * an official feed, matching the polygon drawn on EvacZoneDrawer.
  */
 
 import { useEffect, useRef, useMemo } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
+
+const NOT_REPORTER_FILTER = ['!=', ['get', 'source'], 'reporter'];
+const IS_REPORTER_FILTER = ['==', ['get', 'source'], 'reporter'];
+
+/** Normalized zone-level key shared by both schemas: warningType (official) or zone_type (reporter). */
+const ZONE_LEVEL = ['coalesce', ['get', 'warningType'], ['get', 'zone_type']];
 
 /**
  * Compute the centroid of a GeoJSON Polygon or MultiPolygon ring.
@@ -53,7 +57,7 @@ function polygonCentroid(geometry) {
 
 const COLOR_MATCH = [
   'match',
-  ['get', 'warningType'],
+  ZONE_LEVEL,
   'Evacuation Order',   '#ef4444',
   'Evacuation Warning', '#f97316',
   'Evacuation Watch',   '#eab308',
@@ -62,7 +66,7 @@ const COLOR_MATCH = [
 
 const OPACITY_MATCH = [
   'match',
-  ['get', 'warningType'],
+  ZONE_LEVEL,
   'Evacuation Order',   0.60,
   'Evacuation Warning', 0.50,
   'Evacuation Watch',   0.40,
@@ -71,13 +75,13 @@ const OPACITY_MATCH = [
 
 const LINE_WIDTH_MATCH = [
   'match',
-  ['get', 'warningType'],
+  ZONE_LEVEL,
   'Evacuation Order',   2.5,
   'Evacuation Warning', 2.0,
   /* default */         1.5,
 ];
 
-export default function EvacZonesLayer({ geoJSON, visible }) {
+export default function EvacuationZonesLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
   const data = geoJSON || EMPTY_GEOJSON;
   const { current: map } = useMap();
@@ -98,12 +102,6 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
         };
       })
       .filter(Boolean);
-    console.log(`[EvacZonesLayer] Dots computed: ${dots.length} from ${data.features.length} features`);
-    if (dots.length > 0) {
-      dots.forEach((d, i) => {
-        console.log(`[EvacZonesLayer]   Dot ${i}: id=${d.id} lng=${d.geometry.coordinates[0].toFixed(3)} lat=${d.geometry.coordinates[1].toFixed(3)} src=${d.properties.source} type=${d.properties.warningType}`);
-      });
-    }
     return {
       type: 'FeatureCollection',
       features: dots,
@@ -114,11 +112,7 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
   useEffect(() => {
     if (!map) return;
 
-    const fc = data?.features?.length ?? 0;
-    if (fc !== prevCountRef.current) {
-      prevCountRef.current = fc;
-      console.log(`[EvacZonesLayer] Updating map source: ${fc} features`);
-    }
+    prevCountRef.current = data?.features?.length ?? 0;
 
     try {
       const source = map.getSource('evac-zones');
@@ -141,13 +135,13 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
 
   return (
     <>
-      {/* Polygons (fill, outline, labels) — rendered first, behind dots */}
+      {/* Polygons (fill, outlines, labels) — rendered first, behind dots */}
       <Source
         id="evac-zones"
         type="geojson"
         data={data}
       >
-        {/* Polygon fill */}
+        {/* Polygon fill — shared by official and reporter-drawn zones */}
         <Layer
           id="evac-zones-fill"
           type="fill"
@@ -159,16 +153,54 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           }}
         />
 
-        {/* Outline */}
+        {/* Solid outline for official Cal OES / IPAWS zones */}
         <Layer
           id="evac-zones-line"
           type="line"
           source="evac-zones"
+          filter={NOT_REPORTER_FILTER}
           layout={{ visibility: vis }}
           paint={{
             'line-color':   COLOR_MATCH,
             'line-width':   LINE_WIDTH_MATCH,
             'line-opacity': 0.9,
+          }}
+        />
+
+        {/* Dashed outline for reporter-drawn zones */}
+        <Layer
+          id="evac-zones-line-reporter"
+          type="line"
+          source="evac-zones"
+          filter={IS_REPORTER_FILTER}
+          layout={{
+            visibility: vis,
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
+          paint={{
+            'line-color':     COLOR_MATCH,
+            'line-width':     2.5,
+            'line-opacity':   0.9,
+            'line-dasharray': [3, 2],
+          }}
+        />
+
+        {/* Brighter halo so the reporter dashed line reads well on satellite */}
+        <Layer
+          id="evac-zones-line-reporter-halo"
+          type="line"
+          source="evac-zones"
+          filter={IS_REPORTER_FILTER}
+          layout={{
+            visibility: vis,
+            'line-cap': 'round',
+            'line-join': 'round',
+          }}
+          paint={{
+            'line-color':   '#ffffff',
+            'line-width':   4,
+            'line-opacity': 0.12,
           }}
         />
 
@@ -180,7 +212,7 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           minzoom={8}
           layout={{
             visibility: vis,
-            'text-field': ['coalesce', ['get', 'zoneName'], ''],
+            'text-field': ['coalesce', ['get', 'zoneName'], ['get', 'title'], ''],
             'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
             'text-size': 11,
             'text-anchor': 'center',
