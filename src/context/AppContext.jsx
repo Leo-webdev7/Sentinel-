@@ -34,7 +34,7 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
-    /** Fire spread projection rings (+1h/+3h/+6h); Pro, or reporters */
+    /** Fire spread projection rings (+1h/+3h/+6h); free & public */
     fireBehaviorModeling: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
