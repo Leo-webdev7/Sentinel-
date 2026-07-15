@@ -61,9 +61,12 @@ export function estimateFireBehavior({ windSpeedMph, fuelMoisturePct }) {
     : DEFAULT_FUEL_MOISTURE_PCT;
 
   // Base (no-wind) spread rate falls off as fuel moisture rises; fuels above
-  // ~30% moisture are treated as essentially non-spreading.
+  // ~30% moisture are treated as essentially non-spreading. The whole base
+  // rate (not just the variable term) scales with moistureDamping so it
+  // actually reaches zero at the threshold — a fixed floor here would leave
+  // wind free to multiply a "non-spreading" wet fuel bed into a fast fire.
   const moistureDamping = Math.max(0, 1 - fuelMoistureUsed / 30);
-  const baseRosChPerHr = 1.2 + 5 * moistureDamping ** 1.5;
+  const baseRosChPerHr = (1.2 + 5 * moistureDamping ** 1.5) * moistureDamping;
 
   // Empirical wind multiplier — wind dominates spread rate, as in real fire behavior.
   const windFactor = 1 + 0.9 * windMph ** 0.85;

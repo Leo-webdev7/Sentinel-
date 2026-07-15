@@ -323,7 +323,7 @@ const LayerControl = memo(function LayerControl({
     {
       key: 'fireBehaviorModeling',
       label: 'Fire Behavior Modeling',
-      sublabel: 'Estimated spread projection · +1h / +3h / +6h',
+      sublabel: 'Select a fire for its +1h / +3h / +6h spread projection',
       icon: TrendingUp,
       color: '#ff8c1a',
       locked: !fireBehaviorModelingEntitled,
