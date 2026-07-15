@@ -25,6 +25,7 @@ const FREE_FEATURES = [
   { icon: <Wind size={14} />,         label: 'AQI and wind data' },
   { icon: <MapPin size={14} />,       label: 'Up to 4 saved locations with basic alerts' },
   { icon: <Camera size={14} />,       label: 'Cameras and aircraft when available' },
+  { icon: <Flame size={14} />,        label: 'Fire behavior modeling — spread projection rings (+1h / +3h / +6h)' },
 ];
 
 const PRO_INFRA_LIVE = [
@@ -48,7 +49,6 @@ const PRO_GOVT_SOON = [
   { icon: <TreePine size={14} />,    label: 'Bureau of Land Management (BLM)' },
   { icon: <TreePine size={14} />,    label: 'US Forest Service land' },
   { icon: <Ban size={14} />,         label: 'Temporary Flight Restrictions (TFRs)' },
-  { icon: <Flame size={14} />,       label: 'Fire Behavior Modeling' },
 ];
 
 const FAQ = [
@@ -334,6 +334,7 @@ export default function PricingPage() {
                 { label: 'NWS alerts, radar & satellite imagery',       free: true,  pro: true  },
                 { label: 'AQI and wind data',                           free: true,  pro: true  },
                 { label: 'Cameras & aircraft (when available)',         free: true,  pro: true  },
+                { label: 'Fire Behavior Modeling',                      free: true,  pro: true  },
                 { label: 'Saved locations',                             free: '4',   pro: '25'  },
                 { label: 'Basic location alerts',                       free: true,  pro: true  },
                 { label: 'Priority alert delivery',                     free: false, pro: true  },
@@ -349,7 +350,6 @@ export default function PricingPage() {
                 { label: 'Tribal nations',                              free: false, pro: '🔜'  },
                 { label: 'National Parks / BLM / Forest Service',       free: false, pro: '🔜'  },
                 { label: 'Temporary Flight Restrictions (TFRs)',        free: false, pro: '🔜'  },
-                { label: 'Fire Behavior Modeling',                      free: false, pro: '🔜'  },
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-sentinel-800/40 transition-colors">
                   <td className="px-5 py-3 text-sentinel-200">{row.label}</td>
@@ -383,7 +383,7 @@ export default function PricingPage() {
             {
               icon: <Layers size={22} className="text-blue-400" />,
               title: 'Expanding Layer Library',
-              desc: 'Every new Pro data layer — government land, TFRs, fire modeling — ships automatically to your account.',
+              desc: 'Every new Pro data layer — government land, TFRs — ships automatically to your account.',
             },
           ].map((item, i) => (
             <div key={i} className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-5">

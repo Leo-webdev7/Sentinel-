@@ -34,22 +34,33 @@ export function ringCentroid(ring) {
 }
 
 /**
+ * Get the exterior ring (array of [lng, lat] pairs) of a GeoJSON Polygon or
+ * MultiPolygon geometry. For MultiPolygon, uses the largest sub-polygon
+ * (by vertex count), matching polygonCentroid()'s choice of sub-polygon.
+ * @param {object} geometry GeoJSON geometry
+ * @returns {number[][]|null}
+ */
+export function outerRing(geometry) {
+  if (!geometry) return null;
+  if (geometry.type === 'Polygon') {
+    return geometry.coordinates[0] ?? null;
+  }
+  if (geometry.type === 'MultiPolygon') {
+    let largest = geometry.coordinates[0];
+    for (const poly of geometry.coordinates) {
+      if (poly[0].length > largest[0].length) largest = poly;
+    }
+    return largest?.[0] ?? null;
+  }
+  return null;
+}
+
+/**
  * Get the centroid [lng, lat] for a GeoJSON Polygon or MultiPolygon geometry.
  * @param {object} geometry GeoJSON geometry
  * @returns {[number, number]|null}
  */
 export function polygonCentroid(geometry) {
-  if (!geometry) return null;
-  if (geometry.type === 'Polygon') {
-    return ringCentroid(geometry.coordinates[0]);
-  }
-  if (geometry.type === 'MultiPolygon') {
-    // Use the largest sub-polygon (by vertex count) for centroid
-    let largest = geometry.coordinates[0];
-    for (const poly of geometry.coordinates) {
-      if (poly[0].length > largest[0].length) largest = poly;
-    }
-    return ringCentroid(largest[0]);
-  }
-  return null;
+  const ring = outerRing(geometry);
+  return ring ? ringCentroid(ring) : null;
 }
