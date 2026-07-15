@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup, Marker } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Marker, Source } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -63,14 +63,23 @@ function ndgdFeatureToDateMs(feature) {
 }
 
 // ─── Base map styles ──────────────────────────────────────────────────────────
+// Satellite uses Mapbox Standard Satellite – Mapbox's 3D style with dynamic
+// lighting, 3D landmarks/buildings, and satellite imagery as the base layer.
 const MAP_STYLES = {
   satellite: HAS_MAPBOX_TOKEN
-    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+    ? 'mapbox://styles/mapbox/standard-satellite'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   rendered: HAS_MAPBOX_TOKEN
     ? 'mapbox://styles/mapbox/dark-v11'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
 };
+
+// 3D terrain (satellite view only). With terrain enabled, Mapbox GL drapes
+// fill/line/raster overlays over the elevation surface and positions
+// circle/symbol layers and markers at the terrain's elevation, so every data
+// overlay conforms to the differing elevations. Exaggeration 1.0 keeps
+// elevations true-to-scale (important for an emergency-tracking map).
+const TERRAIN_CONFIG = { source: 'mapbox-dem', exaggeration: 1.0 };
 
 /**
  * Tooltip shown on hover
@@ -1392,6 +1401,9 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
+  // 3D terrain is only available with a Mapbox token on the satellite (3D) style
+  const is3DSatellite = mapType === 'satellite' && HAS_MAPBOX_TOKEN;
+
   return (
     <div className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
@@ -1451,9 +1463,27 @@ export default function MapView({
         maxTileCacheSize={150}
         fadeDuration={150}
         projection="mercator"
+        maxPitch={85}
+        terrain={is3DSatellite ? TERRAIN_CONFIG : undefined}
       >
+        {/* Elevation (DEM) source powering 3D terrain on the satellite view.
+            All overlay layers below are draped over / elevated to this surface. */}
+        {is3DSatellite && (
+          <Source
+            id="mapbox-dem"
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+        )}
+
         {/* Navigation controls */}
-        <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
+        <NavigationControl
+          position="bottom-right"
+          style={{ marginBottom: '6rem' }}
+          visualizePitch
+        />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
