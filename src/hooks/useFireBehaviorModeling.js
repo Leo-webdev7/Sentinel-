@@ -1,15 +1,15 @@
 /**
  * useFireBehaviorModeling.js
- * Derives spread-projection rings (+1h/+3h/+6h) for active fire perimeters,
- * driven by each fire's nearest RAWS station (wind + fuel moisture). Sentinel
- * Pro / Team entitlement only — purely a client-side derivation of data
- * already fetched elsewhere, no additional network endpoint required.
+ * Derives spread-projection rings (+1h/+3h/+6h) by growing each active
+ * fire's actual current perimeter outward, driven by that fire's nearest
+ * RAWS station (wind + fuel moisture). Purely a client-side derivation of
+ * data already fetched elsewhere, no additional network endpoint required.
  */
 
 import { useMemo } from 'react';
 import { useRAWSData } from './useRAWSData';
-import { polygonCentroid } from '../utils/geoUtils';
-import { findNearestStation, estimateFireBehavior, buildSpreadPolygon } from '../utils/fireBehaviorModel';
+import { polygonCentroid, outerRing } from '../utils/geoUtils';
+import { findNearestStation, estimateFireBehavior, buildSpreadPolygon, growPerimeterPolygon } from '../utils/fireBehaviorModel';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -37,10 +37,11 @@ export function useFireBehaviorModeling(enabled, perimetersGeoJSON) {
 
     const features = [];
     for (const fire of activeFires) {
-      const ignition = polygonCentroid(fire.geometry);
-      if (!ignition) continue;
+      const centroid = polygonCentroid(fire.geometry);
+      if (!centroid) continue;
+      const perimeterRing = outerRing(fire.geometry);
 
-      const nearest = findNearestStation(ignition, rawsGeoJSON?.features);
+      const nearest = findNearestStation(centroid, rawsGeoJSON?.features);
       const stationProps = nearest?.station?.properties;
       const behavior = estimateFireBehavior({
         windSpeedMph: stationProps?.windSpeed,
@@ -48,14 +49,24 @@ export function useFireBehaviorModeling(enabled, perimetersGeoJSON) {
       });
 
       for (const hours of HORIZONS_HOURS) {
+        // Grow the fire's actual current perimeter outward; fall back to a
+        // synthetic point-source ellipse only if the perimeter geometry is unusable.
+        const geometry = growPerimeterPolygon({
+          perimeterRing,
+          centroid,
+          windDirDeg: stationProps?.windDir,
+          behavior,
+          hours,
+        }) ?? buildSpreadPolygon({
+          ignition: centroid,
+          windDirDeg: stationProps?.windDir,
+          behavior,
+          hours,
+        });
+
         features.push({
           type: 'Feature',
-          geometry: buildSpreadPolygon({
-            ignition,
-            windDirDeg: stationProps?.windDir,
-            behavior,
-            hours,
-          }),
+          geometry,
           properties: {
             incidentName: fire.properties?.IncidentName || 'Unnamed fire',
             horizonHours: hours,

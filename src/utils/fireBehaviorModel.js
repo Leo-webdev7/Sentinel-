@@ -4,10 +4,13 @@
  *
  * This is NOT a certified fire behavior model — there is no fuel-model,
  * terrain/slope, or gridded wind forecast input. It estimates a rough,
- * directional "where might this fire be in N hours" shape using a
- * double-ellipse growth model (Anderson, 1983) driven by the nearest RAWS
- * station's observed wind and fuel moisture, assuming a moderate/uniform
- * fuel bed. Always defer to official incident management sources
+ * directional "where might this fire be in N hours" shape by growing the
+ * fire's actual current perimeter (see growPerimeterPolygon) outward using
+ * a double-ellipse rate-of-spread model (Anderson, 1983) driven by the
+ * nearest RAWS station's observed wind and fuel moisture, assuming a
+ * moderate/uniform fuel bed. Falls back to a synthetic point-source
+ * ellipse (buildSpreadPolygon) only when no usable perimeter geometry is
+ * available. Always defer to official incident management sources
  * (InciWeb, NIFC, local fire authorities) for operational decisions.
  */
 
@@ -89,6 +92,16 @@ export function estimateFireBehavior({ windSpeedMph, fuelMoisturePct }) {
   };
 }
 
+/** Compass bearing (deg, 0=N clockwise) from one [lng,lat] point to another. */
+function bearingDegrees([lng1, lat1], [lng2, lat2]) {
+  const lat1Rad = (lat1 * Math.PI) / 180;
+  const lat2Rad = (lat2 * Math.PI) / 180;
+  const dLngRad = ((lng2 - lng1) * Math.PI) / 180;
+  const y = Math.sin(dLngRad) * Math.cos(lat2Rad);
+  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLngRad);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
 /** Offset a [lng,lat] point by a compass bearing (deg, 0=N clockwise) and distance (miles). */
 function destinationPoint([lng, lat], bearingDeg, distanceMi) {
   const bearing = (bearingDeg * Math.PI) / 180;
@@ -146,4 +159,67 @@ export function buildSpreadPolygon({ ignition, windDirDeg, behavior, hours }) {
   ring.push(ring[0]);
 
   return { type: 'Polygon', coordinates: [ring] };
+}
+
+const MAX_PERIMETER_RING_POINTS = 96;
+
+/** Evenly downsample a ring to at most maxPoints, preserving overall shape. */
+function resampleRing(ring, maxPoints) {
+  if (ring.length <= maxPoints) return ring;
+  const step = ring.length / maxPoints;
+  const sampled = [];
+  for (let i = 0; i < maxPoints; i++) {
+    sampled.push(ring[Math.floor(i * step)]);
+  }
+  return sampled;
+}
+
+/**
+ * Radial rate of spread (chains/hr) at a given compass bearing, using the
+ * standard elliptical-fire radial ROS formula: fastest in the downwind
+ * (head) bearing, slowest directly upwind (back), smoothly interpolated
+ * between via the head/back rates already computed for that bearing's
+ * length-to-width ratio.
+ */
+function radialRosChPerHr(behavior, bearingDeg, spreadBearingDeg) {
+  const { rosHeadChPerHr, rosBackChPerHr } = behavior;
+  const thetaDeg = ((bearingDeg - spreadBearingDeg + 540) % 360) - 180; // [-180, 180], 0 = downwind
+  const mid = (rosHeadChPerHr + rosBackChPerHr) / 2;
+  const amp = (rosHeadChPerHr - rosBackChPerHr) / 2;
+  return mid + amp * Math.cos((thetaDeg * Math.PI) / 180);
+}
+
+/**
+ * Grow an active fire's actual perimeter outward into a spread-projection
+ * polygon for a given time horizon, instead of modeling from a synthetic
+ * point-source ellipse. Each perimeter vertex is pushed further out along
+ * the ray from the fire's centroid through that vertex, by the distance
+ * the fire would spread in that compass direction over `hours` — fastest
+ * downwind, slowest upwind. This keeps the projection anchored to the
+ * fire's real footprint and shape rather than discarding it.
+ * @param {number[][]} perimeterRing Exterior ring of the current perimeter (from outerRing())
+ * @param {[number, number]} centroid Perimeter centroid [lng, lat]
+ * @param {number|null} windDirDeg Compass direction the wind blows FROM
+ * @param {object} behavior Output of estimateFireBehavior()
+ * @param {number} hours Projection horizon in hours
+ * @returns {{type: 'Polygon', coordinates: number[][][]}|null}
+ */
+export function growPerimeterPolygon({ perimeterRing, centroid, windDirDeg, behavior, hours }) {
+  if (!Array.isArray(perimeterRing) || perimeterRing.length < 3 || !centroid) return null;
+
+  const spreadBearing = Number.isFinite(windDirDeg) ? (windDirDeg + 180) % 360 : 90;
+  const sampled = resampleRing(perimeterRing, MAX_PERIMETER_RING_POINTS);
+
+  const grown = sampled.map((vertex) => {
+    const bearing = bearingDegrees(centroid, vertex);
+    const rosChPerHr = Math.max(radialRosChPerHr(behavior, bearing, spreadBearing), 0);
+    const distMi = (rosChPerHr * CHAIN_TO_FT * hours) / 5280;
+    return destinationPoint(vertex, bearing, distMi);
+  });
+
+  const first = grown[0];
+  const last = grown[grown.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) grown.push(first);
+
+  return { type: 'Polygon', coordinates: [grown] };
 }
