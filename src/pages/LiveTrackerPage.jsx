@@ -534,15 +534,16 @@ const flightBounds = useMemo(() => {
     [perimetersGeoJSON]
   );
 
-  const fireBehaviorModelingEnabled = Boolean(layers.fireBehaviorModeling && fireBehaviorModelingEntitled);
-  const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
-    fireBehaviorModelingEnabled,
-    freshPerimetersGeoJSON
-  );
-
   const freshIncidentDotsGeoJSON = useMemo(
     () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
     [incidentDotsGeoJSON]
+  );
+
+  const fireBehaviorModelingEnabled = Boolean(layers.fireBehaviorModeling && fireBehaviorModelingEntitled);
+  const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
+    fireBehaviorModelingEnabled,
+    freshPerimetersGeoJSON,
+    freshIncidentDotsGeoJSON
   );
 
   // ── Apply feed filter to map fire layers ──
