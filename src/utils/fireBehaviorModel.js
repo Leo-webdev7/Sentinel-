@@ -176,17 +176,22 @@ function resampleRing(ring, maxPoints) {
 
 /**
  * Radial rate of spread (chains/hr) at a given compass bearing, using the
- * standard elliptical-fire radial ROS formula: fastest in the downwind
- * (head) bearing, slowest directly upwind (back), smoothly interpolated
- * between via the head/back rates already computed for that bearing's
- * length-to-width ratio.
+ * standard focus-based elliptical-fire radial ROS formula:
+ *   R(theta) = rosHead * (1 - e) / (1 - e * cos(theta))
+ * where theta is measured from the downwind (head) bearing and e is the
+ * ellipse eccentricity implied by the head/back rates. This reduces to
+ * rosHeadChPerHr at theta=0 and rosBackChPerHr at theta=180 (matching how
+ * rosBackChPerHr itself is derived from eccentricity in
+ * estimateFireBehavior), and — unlike a linear head/back blend — correctly
+ * narrows the flank spread rate for elongated, high-wind fires, consistent
+ * with the ellipse geometry buildSpreadPolygon draws.
  */
 function radialRosChPerHr(behavior, bearingDeg, spreadBearingDeg) {
   const { rosHeadChPerHr, rosBackChPerHr } = behavior;
   const thetaDeg = ((bearingDeg - spreadBearingDeg + 540) % 360) - 180; // [-180, 180], 0 = downwind
-  const mid = (rosHeadChPerHr + rosBackChPerHr) / 2;
-  const amp = (rosHeadChPerHr - rosBackChPerHr) / 2;
-  return mid + amp * Math.cos((thetaDeg * Math.PI) / 180);
+  const eccentricity = (rosHeadChPerHr - rosBackChPerHr) / (rosHeadChPerHr + rosBackChPerHr);
+  const thetaRad = (thetaDeg * Math.PI) / 180;
+  return (rosHeadChPerHr * (1 - eccentricity)) / (1 - eccentricity * Math.cos(thetaRad));
 }
 
 /**
