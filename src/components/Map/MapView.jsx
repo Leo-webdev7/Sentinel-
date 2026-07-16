@@ -46,6 +46,7 @@ import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
+import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import Buildings3DLayer from './layers/Buildings3DLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -901,6 +902,7 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
   waterGaugesGeoJSON,
+  calFireHistoricalPerimetersGeoJSON,
 }) {
   const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
@@ -1576,6 +1578,12 @@ export default function MapView({
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
+        />
+
+        {/* CAL FIRE FRAP historical fire perimeter scars */}
+        <CalFirePerimetersLayer
+          geoJSON={calFireHistoricalPerimetersGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
         />
 
         {/* WFIGS incident location markers */}

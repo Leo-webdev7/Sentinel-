@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp, Building2,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp, Building2, History,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
+  calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS (CAP polygons)', icon: AlertTriangle, color: '#ef4444' },
   reporterEvacZones: { label: 'Reporter Evac Zones', sublabel: 'Field-reported boundaries',   icon: Users,        color: '#f97316' },
@@ -50,7 +51,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
         {
           label: 'Evacuation',
@@ -120,7 +121,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
       ],
     },

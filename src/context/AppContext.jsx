@@ -12,6 +12,8 @@ const initialState = {
   layers: {
     fireHotspots:      false,
     firePerimeters:    false,
+    /** CAL FIRE FRAP historical fire perimeter scars */
+    calFireHistoricalPerimeters: false,
     incidentLocations: false,
     aqi:               false,
     weatherAlerts:     false,
