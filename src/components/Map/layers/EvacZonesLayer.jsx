@@ -24,10 +24,32 @@
  *   Watch / Advisory (preparedness) → yellow
  */
 
-import { memo } from 'react';
-import { Source, Layer } from 'react-map-gl';
+import { useEffect, useRef, useMemo } from 'react';
+import { Source, Layer, useMap } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
+
+/**
+ * Compute the centroid of a GeoJSON Polygon or MultiPolygon ring.
+ * Returns [lng, lat] or null.
+ */
+function polygonCentroid(geometry) {
+  try {
+    if (!geometry) return null;
+    const coords =
+      geometry.type === 'Polygon'
+        ? geometry.coordinates[0]
+        : geometry.type === 'MultiPolygon'
+        ? geometry.coordinates[0][0]
+        : null;
+    if (!coords?.length) return null;
+    const lng = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+    const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+    return [lng, lat];
+  } catch {
+    return null;
+  }
+}
 
 const COLOR_MATCH = [
   'match',
@@ -55,57 +77,146 @@ const LINE_WIDTH_MATCH = [
   /* default */         1.5,
 ];
 
-const EvacZonesLayer = memo(function EvacZonesLayer({ geoJSON, visible }) {
+export default function EvacZonesLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
+  const data = geoJSON || EMPTY_GEOJSON;
+  const { current: map } = useMap();
+  const prevCountRef = useRef(0);
+
+  // Build a companion FeatureCollection of centroid points for the dot layer
+  const dotsData = useMemo(() => {
+    if (!data?.features?.length) return EMPTY_GEOJSON;
+    const dots = data.features
+      .map((f, idx) => {
+        const center = polygonCentroid(f.geometry);
+        if (!center) return null;
+        return {
+          type: 'Feature',
+          id: `dot-${f.id || idx}`,
+          geometry: { type: 'Point', coordinates: center },
+          properties: f.properties,
+        };
+      })
+      .filter(Boolean);
+    console.log(`[EvacZonesLayer] Dots computed: ${dots.length} from ${data.features.length} features`);
+    if (dots.length > 0) {
+      dots.forEach((d, i) => {
+        console.log(`[EvacZonesLayer]   Dot ${i}: id=${d.id} lng=${d.geometry.coordinates[0].toFixed(3)} lat=${d.geometry.coordinates[1].toFixed(3)} src=${d.properties.source} type=${d.properties.warningType}`);
+      });
+    }
+    return {
+      type: 'FeatureCollection',
+      features: dots,
+    };
+  }, [data]);
+
+  // Force source data update when geoJSON changes
+  useEffect(() => {
+    if (!map) return;
+
+    const fc = data?.features?.length ?? 0;
+    if (fc !== prevCountRef.current) {
+      prevCountRef.current = fc;
+      console.log(`[EvacZonesLayer] Updating map source: ${fc} features`);
+    }
+
+    try {
+      const source = map.getSource('evac-zones');
+      if (source && source.type === 'geojson') {
+        source.setData(data);
+      }
+    } catch {
+      // source not yet added
+    }
+
+    try {
+      const dotSource = map.getSource('evac-zones-dots');
+      if (dotSource && dotSource.type === 'geojson') {
+        dotSource.setData(dotsData);
+      }
+    } catch {
+      // source not yet added
+    }
+  }, [data, dotsData, map]);
 
   return (
-    <Source id="evac-zones" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
-      {/* Polygon fill */}
-      <Layer
-        id="evac-zones-fill"
-        type="fill"
-        source="evac-zones"
-        layout={{ visibility: vis }}
-        paint={{
-          'fill-color':   COLOR_MATCH,
-          'fill-opacity': OPACITY_MATCH,
-        }}
-      />
+    <>
+      {/* Polygons (fill, outline, labels) — rendered first, behind dots */}
+      <Source
+        id="evac-zones"
+        type="geojson"
+        data={data}
+      >
+        {/* Polygon fill */}
+        <Layer
+          id="evac-zones-fill"
+          type="fill"
+          source="evac-zones"
+          layout={{ visibility: vis }}
+          paint={{
+            'fill-color':   COLOR_MATCH,
+            'fill-opacity': OPACITY_MATCH,
+          }}
+        />
 
-      {/* Outline */}
-      <Layer
-        id="evac-zones-line"
-        type="line"
-        source="evac-zones"
-        layout={{ visibility: vis }}
-        paint={{
-          'line-color':   COLOR_MATCH,
-          'line-width':   LINE_WIDTH_MATCH,
-          'line-opacity': 0.9,
-        }}
-      />
+        {/* Outline */}
+        <Layer
+          id="evac-zones-line"
+          type="line"
+          source="evac-zones"
+          layout={{ visibility: vis }}
+          paint={{
+            'line-color':   COLOR_MATCH,
+            'line-width':   LINE_WIDTH_MATCH,
+            'line-opacity': 0.9,
+          }}
+        />
 
-      {/* Zone-name labels at higher zoom */}
-      <Layer
-        id="evac-zones-label"
-        type="symbol"
-        source="evac-zones"
-        minzoom={8}
-        layout={{
-          visibility: vis,
-          'text-field': ['coalesce', ['get', 'zoneName'], ''],
-          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-          'text-size': 11,
-          'text-anchor': 'center',
-          'text-max-width': 10,
-        }}
-        paint={{
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.85)',
-          'text-halo-width': 2,
-        }}
-      />
-    </Source>
+        {/* Zone-name labels at higher zoom */}
+        <Layer
+          id="evac-zones-label"
+          type="symbol"
+          source="evac-zones"
+          minzoom={8}
+          layout={{
+            visibility: vis,
+            'text-field': ['coalesce', ['get', 'zoneName'], ''],
+            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+            'text-size': 11,
+            'text-anchor': 'center',
+            'text-max-width': 10,
+          }}
+          paint={{
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.85)',
+            'text-halo-width': 2,
+          }}
+        />
+      </Source>
+
+      {/* Dot markers at polygon centroids (low zoom) — on top of polygons */}
+      <Source id="evac-zones-dots" type="geojson" data={dotsData}>
+        <Layer
+          id="evac-zones-dot"
+          type="circle"
+          source="evac-zones-dots"
+          maxzoom={6}
+          layout={{ visibility: vis }}
+          paint={{
+            'circle-color':   COLOR_MATCH,
+            'circle-opacity': 0.95,
+            'circle-radius':  [
+              'interpolate', ['linear'], ['zoom'],
+              0, 4,
+              3, 6,
+              5, 8,
+            ],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2,
+            'circle-stroke-opacity': 1,
+          }}
+        />
+      </Source>
+    </>
   );
-});
-export default EvacZonesLayer;
+}

@@ -28,25 +28,43 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
 }) {
   const vis = visible ? 'visible' : 'none';
   const combinedGeoJSON = useMemo(() => {
-    const alertFeatures = Array.isArray(geoJSON?.features)
-      ? geoJSON.features.map((feature) => ({
-          ...feature,
-          properties: {
-            ...(feature?.properties || {}),
-            __sentinelLayerType: 'nws-alert',
-          },
-        }))
-      : [];
+    const alertFeatures = [];
+    if (Array.isArray(geoJSON?.features)) {
+      for (const feature of geoJSON.features) {
+        try {
+          if (!feature?.geometry) continue;
+          alertFeatures.push({
+            type: 'Feature',
+            geometry: feature.geometry,
+            properties: {
+              ...(feature?.properties || {}),
+              __sentinelLayerType: 'nws-alert',
+            },
+          });
+        } catch (err) {
+          console.warn('[WeatherAlertsLayer] Skipped malformed NWS alert feature:', err.message);
+        }
+      }
+    }
 
-    const mdFeatures = Array.isArray(spcMdGeoJSON?.features)
-      ? spcMdGeoJSON.features.map((feature) => ({
-          ...feature,
-          properties: {
-            ...(feature?.properties || {}),
-            __sentinelLayerType: 'spc-md',
-          },
-        }))
-      : [];
+    const mdFeatures = [];
+    if (Array.isArray(spcMdGeoJSON?.features)) {
+      for (const feature of spcMdGeoJSON.features) {
+        try {
+          if (!feature?.geometry) continue;
+          mdFeatures.push({
+            type: 'Feature',
+            geometry: feature.geometry,
+            properties: {
+              ...(feature?.properties || {}),
+              __sentinelLayerType: 'spc-md',
+            },
+          });
+        } catch (err) {
+          console.warn('[WeatherAlertsLayer] Skipped malformed SPC MD feature:', err.message);
+        }
+      }
+    }
 
     if (!alertFeatures.length && !mdFeatures.length) return EMPTY_GEOJSON;
 

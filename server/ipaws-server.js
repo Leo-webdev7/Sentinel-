@@ -172,11 +172,30 @@ async function refreshAlerts() {
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
     }
     const xml = await res.text();
-    const alerts = capXmlToAlerts(xml);
+    const newAlerts = capXmlToAlerts(xml);
+
+    // Merge with existing alerts: keep old alerts that haven't genuinely expired
+    const nowISO = new Date().toISOString();
+    const newIds = new Set(newAlerts.map((a) => a.identifier));
+
+    const merged = newAlerts.slice();
+    for (const old of store.alerts) {
+      // Skip if already in new batch
+      if (newIds.has(old.identifier)) continue;
+
+      // Check if the alert has genuinely expired
+      const expiresStr =
+        old.infos?.[0]?.expires || old.expires || null;
+      if (expiresStr && expiresStr < nowISO) continue; // genuinely expired, drop
+
+      // Keep: not expired and not in new batch
+      merged.push(old);
+    }
+
     store = {
       ...store,
       updatedAt: new Date().toISOString(),
-      alerts,
+      alerts: merged,
       lastError: null,
     };
   } catch (err) {

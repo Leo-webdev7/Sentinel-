@@ -36,9 +36,13 @@ const initialState = {
     schoolsUniversities: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
+    /** NOAA NWPS water gauges */
+    waterGauges: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
+  // Currently selected water gauge (properties from map feature)
+  selectedGauge: null,
   // Sidebar open/closed (left panel)
   sidebarOpen: true,
   // Layer control panel open/closed (right panel)
@@ -47,6 +51,8 @@ const initialState = {
   legendOpen: true,
   // Active weather alerts list
   alerts: [],
+  // Pipeline status for weather alerts (error, loading per-alert-system)
+  alertsStatus: { loading: false, error: null, errorDetail: null, lastRefresh: null },
   // Sidebar feed filter: 'all' or 'focused' (hides old/contained fires)
   feedFilter: 'all',
   // Last time data was refreshed
@@ -67,10 +73,12 @@ const A = {
   SET_LAYER:          'SET_LAYER',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
+  SELECT_GAUGE:       'SELECT_GAUGE',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
   SET_ALERTS:         'SET_ALERTS',
+  SET_ALERTS_STATUS:  'SET_ALERTS_STATUS',
   SET_LOADING:        'SET_LOADING',
   SET_REFRESHED:      'SET_REFRESHED',
   SET_VIEWPORT:       'SET_VIEWPORT',
@@ -91,9 +99,11 @@ function reducer(state, action) {
         layers: { ...state.layers, [action.layer]: action.value },
       };
     case A.SELECT_FIRE:
-      return { ...state, selectedFire: action.fire };
+      return { ...state, selectedFire: action.fire, selectedGauge: null };
     case A.CLEAR_SELECTED:
-      return { ...state, selectedFire: null };
+      return { ...state, selectedFire: null, selectedGauge: null };
+    case A.SELECT_GAUGE:
+      return { ...state, selectedGauge: action.gauge, selectedFire: null };
     case A.TOGGLE_SIDEBAR:
       return { ...state, sidebarOpen: !state.sidebarOpen };
     case A.TOGGLE_LAYER_PANEL:
@@ -102,6 +112,8 @@ function reducer(state, action) {
       return { ...state, legendOpen: !state.legendOpen };
     case A.SET_ALERTS:
       return { ...state, alerts: action.alerts };
+    case A.SET_ALERTS_STATUS:
+      return { ...state, alertsStatus: { ...state.alertsStatus, ...action.status } };
     case A.SET_LOADING:
       return { ...state, isLoading: action.value };
     case A.SET_REFRESHED:
@@ -125,10 +137,12 @@ export function AppProvider({ children }) {
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
+  const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
   const setAlerts        = useCallback((alerts) => dispatch({ type: A.SET_ALERTS, alerts }), []);
+  const setAlertsStatus  = useCallback((status) => dispatch({ type: A.SET_ALERTS_STATUS, status }), []);
   const setLoading       = useCallback((value) => dispatch({ type: A.SET_LOADING, value }), []);
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
@@ -153,10 +167,12 @@ export function AppProvider({ children }) {
       setLayer,
       selectFire,
       clearSelected,
+      selectGauge,
       toggleSidebar,
       toggleLayerPanel,
       toggleLegend,
       setAlerts,
+      setAlertsStatus,
       setLoading,
       setRefreshed,
       setViewport,

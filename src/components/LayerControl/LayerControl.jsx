@@ -35,6 +35,7 @@ const LAYER_DEFS = {
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
   nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC storms · disturbance outlook', icon: Waves, color: '#38bdf8' },
+  waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
 };
 
 /**
@@ -69,6 +70,10 @@ const TAB_SECTIONS = {
         {
           label: 'Tropical',
           layers: ['nhcTropicalWeather'],
+        },
+        {
+          label: 'Flood & water',
+          layers: ['waterGauges'],
         },
         {
           label: 'Outlooks',
@@ -140,6 +145,10 @@ const TAB_SECTIONS = {
       subtitle: 'Stations, sensors, and air quality',
       groups: [
         {
+          label: 'Flood & water',
+          layers: ['waterGauges'],
+        },
+        {
           label: 'Stations',
           layers: ['rawsStations', 'airNowMonitors'],
         },
@@ -163,6 +172,10 @@ const TAB_SECTIONS = {
         {
           label: 'Tropical',
           layers: ['nhcTropicalWeather'],
+        },
+        {
+          label: 'Flood & water',
+          layers: ['waterGauges'],
         },
         {
           label: 'Stations',

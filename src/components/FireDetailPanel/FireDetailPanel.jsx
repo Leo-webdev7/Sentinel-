@@ -494,6 +494,9 @@ function AlertDetail({ fire, alerts }) {
             <span className={chipInfo}>Expires {formatRelativeTime(merged.expires)}</span>
           )}
           {sourceLabel && <span className={chipInfo}>{sourceLabel}</span>}
+          <span className={chipOutline}>
+            Source: {merged.source === 'fema' ? 'FEMA IPAWS' : 'National Weather Service'}
+          </span>
           {office && <span className={chipOutline}>Office: {office}</span>}
         </div>
         <div className="flex flex-wrap gap-1.5 items-center">

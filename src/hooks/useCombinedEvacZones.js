@@ -43,9 +43,9 @@ import { fetchCaEvacuations }  from '../api/caEvacuations';
 import { ipawsAlertsToEvacFeatures } from '../utils/ipawsEvacGeoJSON';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
-/** In dev, default to Vite proxy → Node poller; in prod set VITE_IPAWS_ALERTS_URL explicitly. */
+/** In dev, default to Vite proxy → Node poller; in prod default to edge function proxy. */
 const IPAWS_ALERTS_URL = (
-  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '')
+  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '/api/fema')
 ).trim();
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -70,6 +70,7 @@ function normaliseProdFeature(f) {
   const p = f.properties || {};
   return {
     ...f,
+    id: f.id || `prod-${p.OBJECTID ?? p.Zone_Name ?? ''}`,
     properties: {
       id:             p.OBJECTID ?? p.Zone_Name ?? '',
       warningType:    prodStatusToWarningType(p.Zone_Status),
@@ -95,6 +96,7 @@ function normaliseHostedFeature(f) {
   const p = f.properties || {};
   return {
     ...f,
+    id: f.id || `hosted-${p.id || f.properties?.OBJECTID || Math.random().toString(36).slice(2)}`,
     properties: {
       id:             p.id            ?? '',
       warningType:    p.warningType   || 'Evacuation Warning',
@@ -159,15 +161,46 @@ function deduplicateAgainstProd(hostedFeatures, prodFeatures) {
   });
 }
 
+// Client-side IPAWS alert cache — mirrors poller server's merge/persist behavior
+// so alerts don't disappear prematurely in production (where edge functions are stateless).
+const _ipawsCache = new Map();
+
 async function fetchIpawsEvacFeatures() {
-  if (!IPAWS_ALERTS_URL) return [];
+  if (!IPAWS_ALERTS_URL) {
+    if (import.meta.env.DEV) {
+      console.warn('[EvacZones] IPAWS alerts URL not configured; start the poller: node server/ipaws-server.js');
+    }
+    return _ipawsCache.size > 0 ? ipawsAlertsToEvacFeatures([..._ipawsCache.values()]) : [];
+  }
   try {
     const res = await fetch(IPAWS_ALERTS_URL, { headers: { Accept: 'application/json' } });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn(`[EvacZones] IPAWS fetch failed: HTTP ${res.status} from ${IPAWS_ALERTS_URL}`);
+      return _ipawsCache.size > 0 ? ipawsAlertsToEvacFeatures([..._ipawsCache.values()]) : [];
+    }
     const data = await res.json();
-    return ipawsAlertsToEvacFeatures(data.alerts);
-  } catch {
-    return [];
+    const newAlerts = data?.alerts ?? [];
+    console.log(`[EvacZones] IPAWS: ${newAlerts.length} alerts received (cache: ${_ipawsCache.size})`);
+
+    const now = new Date().toISOString();
+
+    // Add new alerts to cache
+    for (const alert of newAlerts) {
+      if (alert.identifier) _ipawsCache.set(alert.identifier, alert);
+    }
+
+    // Remove genuinely expired alerts from cache
+    for (const [id, cached] of _ipawsCache) {
+      const expiresStr = cached.infos?.[0]?.expires || cached.expires || null;
+      if (expiresStr && expiresStr < now) _ipawsCache.delete(id);
+    }
+
+    const merged = [..._ipawsCache.values()];
+    console.log(`[EvacZones] IPAWS: ${merged.length} total after merge (${_ipawsCache.size} cached)`);
+    return ipawsAlertsToEvacFeatures(merged);
+  } catch (err) {
+    console.warn(`[EvacZones] IPAWS fetch error: ${err.message} (URL: ${IPAWS_ALERTS_URL})`);
+    return _ipawsCache.size > 0 ? ipawsAlertsToEvacFeatures([..._ipawsCache.values()]) : [];
   }
 }
 
@@ -209,6 +242,16 @@ export function useCombinedEvacZones(enabled = true) {
       type: 'FeatureCollection',
       features: [...normProd, ...uniqueHosted, ...ipawsFeatures],
     };
+
+    console.log(
+      `[EvacZones] Loaded: ${normProd.length} prod + ${uniqueHosted.length} hosted + ${ipawsFeatures.length} ipaws = ${merged.features.length} total`
+    );
+    if (merged.features.length > 0) {
+      const sample = merged.features[0];
+      console.log(
+        `[EvacZones] Sample feature: id=${sample.id} type=${sample.geometry?.type} warningType=${sample.properties?.warningType} zoneName=${sample.properties?.zoneName?.slice(0, 40)}`
+      );
+    }
 
     setGeoJSON(merged);
     setLoading(false);

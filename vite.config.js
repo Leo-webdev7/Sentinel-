@@ -95,7 +95,28 @@ export default defineConfig({
           Accept: 'application/json, application/geo+json, text/plain, */*',
           'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
         },
-        rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
+        rewrite: (path) => {
+          const search = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(search);
+          const offset = params.get('resultOffset') || '0';
+          const count = params.get('resultRecordCount') || '500';
+          return `/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
+      },
+      '/api/noaa/cwa': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson',
+      },
+      '/api/noaa/firewxzones': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/9/query?where=1%3D1&outFields=state,zone&outSR=4326&f=geojson',
+      },
+      '/api/noaa/marinezones': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
     },
   },
@@ -137,7 +158,28 @@ export default defineConfig({
           Accept: 'application/json, application/geo+json, text/plain, */*',
           'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
         },
-        rewrite: () => '/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=5000',
+        rewrite: (path) => {
+          const search = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(search);
+          const offset = params.get('resultOffset') || '0';
+          const count = params.get('resultRecordCount') || '500';
+          return `/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=1%3D1&outFields=STATE,COUNTY,NAME&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
+      },
+      '/api/noaa/cwa': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson',
+      },
+      '/api/noaa/firewxzones': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/9/query?where=1%3D1&outFields=state,zone&outSR=4326&f=geojson',
+      },
+      '/api/noaa/marinezones': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
     },
   },
