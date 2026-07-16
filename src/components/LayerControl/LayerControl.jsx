@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp, Building2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -327,6 +327,14 @@ const LayerControl = memo(function LayerControl({
       icon: TrendingUp,
       color: '#ff8c1a',
       locked: !fireBehaviorModelingEntitled,
+    },
+    {
+      key: 'buildings3d',
+      label: '3D Buildings',
+      sublabel: 'Mapbox 3D building extrusions',
+      icon: Building2,
+      color: '#38bdf8',
+      locked: false,
     },
   ], [infrastructureLayersEntitled, fireBehaviorModelingEntitled]);
 

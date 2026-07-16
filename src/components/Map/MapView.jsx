@@ -46,6 +46,7 @@ import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
+import Buildings3DLayer from './layers/Buildings3DLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -1528,7 +1529,12 @@ export default function MapView({
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
-
+        {/* Mapbox 3D buildings – rendered first so data overlays stay on top */}
+        <Buildings3DLayer
+          visible={layers.buildings3d}
+          mapType={mapType}
+          hasMapboxToken={HAS_MAPBOX_TOKEN}
+        />
 
         {/* GOES satellite imagery – visible/weather bands on weather tab;
             ABI-L2-MCMIP Day Land Cloud Fire RGB on wildfire tab */}
