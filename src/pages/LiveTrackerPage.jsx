@@ -947,15 +947,15 @@ const flightBounds = useMemo(() => {
             />
           )}
 
-          {/* Bug report button – fixed to bottom-right of map area */}
+          {/* Bug report button – tiny, pinned to the very bottom-right corner of map area */}
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header"
             target="_blank"
             rel="noopener noreferrer"
-            className="bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
+            className="absolute bottom-0 right-0 z-20 flex items-center gap-1 px-1.5 py-0.5 rounded-tl text-[10px] leading-none font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow backdrop-blur-sm transition-colors"
             title="Report a bug"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 2h8l1 4H7L8 2z"/>
               <path d="M12 6v4"/>
               <circle cx="12" cy="14" r="6"/>
@@ -964,7 +964,7 @@ const flightBounds = useMemo(() => {
               <path d="M6.34 17.66l-2.83 2.83M20.49 3.51l-2.83 2.83"/>
               <path d="M17.66 17.66l2.83 2.83M3.51 3.51l2.83 2.83"/>
             </svg>
-            Report Bug
+            Bug
           </a>
         </div>
       </div>
