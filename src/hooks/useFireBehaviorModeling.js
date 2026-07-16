@@ -1,13 +1,18 @@
 /**
  * useFireBehaviorModeling.js
- * Derives spread-projection rings (+1h/+3h/+6h) for active fires, driven by
- * each fire's nearest RAWS station (wind + fuel moisture). Purely a
- * client-side derivation of data already fetched elsewhere, no additional
- * network endpoint required.
+ * Derives spread-projection rings (+1h/+3h/+6h) for the user's currently
+ * selected fire, driven by that fire's nearest RAWS station (wind + fuel
+ * moisture). Purely a client-side derivation of data already fetched
+ * elsewhere, no additional network endpoint required.
  *
- * Fires with a mapped perimeter polygon (NIFC WFIGS) have their actual
- * footprint grown outward. Fires that only have an incident "dot" location
- * (no perimeter yet reported) are modeled as a point-source ellipse
+ * Modeling is opt-in per fire (selectedFireId) rather than running over
+ * every active fire on the map — the projection math is only meaningful
+ * for a fire the user is actively looking at, and computing it for dozens
+ * of fires at once was wasted work with no UI to show it.
+ *
+ * A fire with a mapped perimeter polygon (NIFC WFIGS) has its actual
+ * footprint grown outward. A fire that only has an incident "dot" location
+ * (no perimeter yet reported) is modeled as a point-source ellipse
  * centered on that dot, using the same wind/fuel-moisture inputs.
  */
 
@@ -21,11 +26,14 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 // Largest horizon first so smaller/nearer-term rings draw on top (painter's algorithm).
 const HORIZONS_HOURS = [6, 3, 1];
 const MIN_ACRES = 10;
-const MAX_FIRES_MODELED = 60;
 
 function isModelable(properties) {
   const p = properties || {};
   return Number(p.PercentContained) < 100 && Number(p.GISAcres) >= MIN_ACRES;
+}
+
+function findByFireId(features, fireId) {
+  return features.find((f) => f.properties?.UniqueFireIdentifier === fireId) || null;
 }
 
 function projectionFeatures({ incidentName, ignitionPoint, perimeterRing, rawsFeatures }) {
@@ -77,44 +85,47 @@ function projectionFeatures({ incidentName, ignitionPoint, perimeterRing, rawsFe
  * @param {boolean} enabled Layer toggle on AND user has fire-behavior-modeling entitlement
  * @param {object|null} perimetersGeoJSON Active fire perimeter polygons (NIFC WFIGS)
  * @param {object|null} incidentDotsGeoJSON Active fire "dot" incidents that have no mapped perimeter yet
+ * @param {string|null} selectedFireId UniqueFireIdentifier of the fire the user has selected, if any
  */
-export function useFireBehaviorModeling(enabled, perimetersGeoJSON, incidentDotsGeoJSON) {
-  const { geoJSON: rawsGeoJSON, loading: rawsLoading } = useRAWSData(enabled);
+export function useFireBehaviorModeling(enabled, perimetersGeoJSON, incidentDotsGeoJSON, selectedFireId) {
+  const active = enabled && Boolean(selectedFireId);
+  const { geoJSON: rawsGeoJSON, loading: rawsLoading } = useRAWSData(active);
 
   const geoJSON = useMemo(() => {
+    if (!active) return EMPTY_GEOJSON;
+
     const perimeterFeatures = perimetersGeoJSON?.features || [];
     const dotFeatures = incidentDotsGeoJSON?.features || [];
-    if (!enabled || (!perimeterFeatures.length && !dotFeatures.length)) return EMPTY_GEOJSON;
 
-    const activeFires = perimeterFeatures.filter((f) => isModelable(f.properties)).slice(0, MAX_FIRES_MODELED);
-    const activeDots = dotFeatures.filter((f) => isModelable(f.properties)).slice(0, MAX_FIRES_MODELED);
+    const fire = findByFireId(perimeterFeatures, selectedFireId);
+    const dot = fire ? null : findByFireId(dotFeatures, selectedFireId);
 
     const features = [];
 
-    for (const fire of activeFires) {
+    if (fire && isModelable(fire.properties)) {
       const centroid = polygonCentroid(fire.geometry);
-      if (!centroid) continue;
-      features.push(...projectionFeatures({
-        incidentName: fire.properties?.IncidentName || 'Unnamed fire',
-        ignitionPoint: centroid,
-        perimeterRing: outerRing(fire.geometry),
-        rawsFeatures: rawsGeoJSON?.features,
-      }));
-    }
-
-    for (const dot of activeDots) {
+      if (centroid) {
+        features.push(...projectionFeatures({
+          incidentName: fire.properties?.IncidentName || 'Unnamed fire',
+          ignitionPoint: centroid,
+          perimeterRing: outerRing(fire.geometry),
+          rawsFeatures: rawsGeoJSON?.features,
+        }));
+      }
+    } else if (dot && isModelable(dot.properties)) {
       const coords = dot.geometry?.coordinates;
-      if (!Array.isArray(coords)) continue;
-      features.push(...projectionFeatures({
-        incidentName: dot.properties?.IncidentName || 'Unnamed fire',
-        ignitionPoint: [coords[0], coords[1]],
-        perimeterRing: null,
-        rawsFeatures: rawsGeoJSON?.features,
-      }));
+      if (Array.isArray(coords)) {
+        features.push(...projectionFeatures({
+          incidentName: dot.properties?.IncidentName || 'Unnamed fire',
+          ignitionPoint: [coords[0], coords[1]],
+          perimeterRing: null,
+          rawsFeatures: rawsGeoJSON?.features,
+        }));
+      }
     }
 
     return { type: 'FeatureCollection', features };
-  }, [enabled, perimetersGeoJSON, incidentDotsGeoJSON, rawsGeoJSON]);
+  }, [active, perimetersGeoJSON, incidentDotsGeoJSON, rawsGeoJSON, selectedFireId]);
 
-  return { geoJSON, loading: enabled && rawsLoading };
+  return { geoJSON, loading: active && rawsLoading };
 }

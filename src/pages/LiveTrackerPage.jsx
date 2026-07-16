@@ -208,7 +208,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, alerts, selectFire, flyToFire } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, alerts, selectFire, flyToFire, selectedFire } = useApp();
   const [searchParams] = useSearchParams();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
@@ -540,10 +540,14 @@ const flightBounds = useMemo(() => {
   );
 
   const fireBehaviorModelingEnabled = Boolean(layers.fireBehaviorModeling && fireBehaviorModelingEntitled);
+  const selectedFireIdForModeling = (selectedFire?.type === 'perimeter' || selectedFire?.type === 'incident')
+    ? selectedFire.id
+    : null;
   const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
     fireBehaviorModelingEnabled,
     freshPerimetersGeoJSON,
-    freshIncidentDotsGeoJSON
+    freshIncidentDotsGeoJSON,
+    selectedFireIdForModeling
   );
 
   // ── Apply feed filter to map fire layers ──
