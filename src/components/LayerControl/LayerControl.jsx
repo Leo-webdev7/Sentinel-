@@ -349,7 +349,7 @@ const LayerControl = memo(function LayerControl({
       {
         id: 'wf-infra',
         title: 'Infrastructure & Modeling',
-        subtitle: 'Energy & key facilities (Pro) · spread modeling (Free)',
+        subtitle: 'Energy & key facilities (Pro) · spread modeling & 3D buildings (Free)',
         groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
