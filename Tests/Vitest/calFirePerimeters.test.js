@@ -87,9 +87,39 @@ describe('fetchCalFireHistoricalPerimeters', () => {
   });
 
   it('falls back to mock data on ArcGIS error payload', async () => {
+    vi.useFakeTimers();
     fetchWithCache.mockResolvedValue({ error: { message: 'Invalid query parameters' } });
 
-    const result = await fetchCalFireHistoricalPerimeters();
+    const promise = fetchCalFireHistoricalPerimeters();
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    vi.useRealTimers();
     expect(result.features.length).toBeGreaterThan(0);
+  });
+
+  it('tries egis.fire.ca.gov first, then falls back to the ArcGIS Online mirror', async () => {
+    vi.useFakeTimers();
+    fetchWithCache.mockImplementation(async (url) => {
+      if (url.includes('egis.fire.ca.gov')) throw new Error('CORS blocked');
+      return {
+        type: 'FeatureCollection',
+        features: [{ properties: { FIRE_NAME: 'Mirror Fire', YEAR_: 2019, GIS_ACRES: 500 } }],
+      };
+    });
+
+    const promise = fetchCalFireHistoricalPerimeters();
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    vi.useRealTimers();
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0].properties.FireName).toBe('Mirror Fire');
+    expect(fetchWithCache).toHaveBeenCalledWith(
+      expect.stringContaining('egis.fire.ca.gov'), expect.anything(), expect.anything(), expect.anything()
+    );
+    expect(fetchWithCache).toHaveBeenCalledWith(
+      expect.stringContaining('services1.arcgis.com'), expect.anything(), expect.anything(), expect.anything()
+    );
   });
 });
