@@ -40,6 +40,8 @@ const initialState = {
     nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
+    /** Mapbox 3D buildings (Standard 3D objects / fill-extrusions) */
+    buildings3d: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
