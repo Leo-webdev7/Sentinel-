@@ -36,6 +36,7 @@ import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
+import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 
@@ -503,6 +504,11 @@ const flightBounds = useMemo(() => {
     geoJSON: waterGaugesGeoJSON,
   } = useWaterGauges(layers.waterGauges);
 
+  // CAL FIRE FRAP historical fire perimeters
+  const {
+    geoJSON: calFireHistoricalPerimetersGeoJSON,
+  } = useCalFirePerimeters(layers.calFireHistoricalPerimeters);
+
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
   }, [flightsError]);
@@ -917,6 +923,7 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
+            calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
           <LayerControl

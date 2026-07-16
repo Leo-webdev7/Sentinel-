@@ -209,6 +209,65 @@ export const MOCK_FIRE_PERIMETERS = {
   ],
 };
 
+// ─── CAL FIRE FRAP Historical Fire Perimeters ────────────────────────────────
+// Simplified footprints of well-known past California fires, used as demo-mode
+// fallback for the "Historical Fire Perimeters" layer.
+export const MOCK_CALFIRE_HISTORICAL_PERIMETERS = {
+  type: 'FeatureCollection',
+  features: [
+    // Camp Fire – Butte County, CA, 2018 (153,336 acres)
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-121.75, 39.72], [-121.42, 39.72], [-121.38, 39.85],
+          [-121.48, 39.92], [-121.68, 39.90], [-121.78, 39.80],
+          [-121.75, 39.72],
+        ]],
+      },
+      properties: {
+        FireName: 'Camp',
+        FireYear: 2018,
+        GISAcres: 153336,
+        AlarmDate: '2018-11-08T00:00:00Z',
+        ContainedDate: '2018-11-25T00:00:00Z',
+        Agency: 'CDF',
+        UnitId: 'BTU',
+        Cause: 9,
+        IncidentNum: '18CABTU010890',
+        IRWINID: '',
+        _source: 'CALFIRE_FRAP',
+      },
+    },
+    // Dixie Fire – Butte/Plumas/Lassen/Shasta/Tehama Counties, CA, 2021 (963,309 acres)
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-121.60, 39.90], [-120.80, 39.90], [-120.60, 40.30],
+          [-120.90, 40.60], [-121.40, 40.55], [-121.70, 40.20],
+          [-121.60, 39.90],
+        ]],
+      },
+      properties: {
+        FireName: 'Dixie',
+        FireYear: 2021,
+        GISAcres: 963309,
+        AlarmDate: '2021-07-13T00:00:00Z',
+        ContainedDate: '2021-10-25T00:00:00Z',
+        Agency: 'USF',
+        UnitId: 'BTU',
+        Cause: 9,
+        IncidentNum: '21CABTU006026',
+        IRWINID: '',
+        _source: 'CALFIRE_FRAP',
+      },
+    },
+  ],
+};
+
 // ─── AQI Monitoring Stations ─────────────────────────────────────────────────
 // Real reporting areas with typical AQI values for April 8, 2026.
 // Southeast US elevated due to active fires (Williams Creek AL, Fire 139 FL, Sargent FL).
