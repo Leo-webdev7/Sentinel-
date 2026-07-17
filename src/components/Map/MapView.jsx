@@ -1057,7 +1057,7 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
-    if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
+    if ((isWildfireTab || isAllHazardTab) && evacZonesGeoJSON)                                            ids.push('evac-zones-fill');
     if ((isWildfireTab || isAllHazardTab) && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
@@ -1093,7 +1093,7 @@ export default function MapView({
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
+      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
@@ -1611,10 +1611,10 @@ export default function MapView({
           opacity={0.9}
         />
 
-        {/* California evacuation zones (official Cal OES feed) */}
+        {/* California evacuation zones (official Cal OES feed) — permanent layer, not user-toggleable */}
         <EvacZonesLayer
           geoJSON={evacZonesGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
+          visible={isWildfireTab || isAllHazardTab}
         />
 
         {/* Reporter-drawn evacuation zones */}
