@@ -56,6 +56,24 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             ],
           }}
         />
+        {/* Dark casing beneath the colored line so the boundary stays legible
+            over busy overlays (e.g. the evac-zone hatch fill) */}
+        <Layer
+          id="fire-perimeters-line-casing"
+          type="line"
+          source="fire-perimeters"
+          layout={{ visibility: vis }}
+          paint={{
+            'line-color': '#000000',
+            'line-width': [
+              'case',
+              ['boolean', ['feature-state', 'selected'], false],
+              5,
+              3.2,
+            ],
+            'line-opacity': 0.55,
+          }}
+        />
         <Layer
           id="fire-perimeters-line"
           type="line"
@@ -74,9 +92,9 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
               'case',
               ['boolean', ['feature-state', 'selected'], false],
               3,
-              1.8,
+              2.2,
             ],
-            'line-opacity': 0.9,
+            'line-opacity': 1,
           }}
         />
         <Layer

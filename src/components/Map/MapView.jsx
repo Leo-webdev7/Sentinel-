@@ -1574,18 +1574,6 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective'}
         />
 
-        {/* Fire perimeter polygons */}
-        <FirePerimetersLayer
-          geoJSON={perimetersGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
-        />
-
-        {/* CAL FIRE FRAP historical fire perimeter scars */}
-        <CalFirePerimetersLayer
-          geoJSON={calFireHistoricalPerimetersGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
-        />
-
         {/* WFIGS incident location markers */}
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
@@ -1621,6 +1609,19 @@ export default function MapView({
         <ReporterEvacZonesLayer
           geoJSON={reporterEvacZonesGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.reporterEvacZones}
+        />
+
+        {/* Fire perimeter polygons — rendered above evac zones so the active
+            fire boundary stays visible through the zone hatch overlay */}
+        <FirePerimetersLayer
+          geoJSON={perimetersGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
+        />
+
+        {/* CAL FIRE FRAP historical fire perimeter scars */}
+        <CalFirePerimetersLayer
+          geoJSON={calFireHistoricalPerimetersGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
         />
 
         <CriticalInfrastructureLayer
