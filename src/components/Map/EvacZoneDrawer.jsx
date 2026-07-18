@@ -157,7 +157,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
     loading: firesLoading,
     dotsCount,
     perimetersCount,
-  } = useMergedFireData(5, true, true);
+  } = useMergedFireData(0, true, true);
   const [selectedFire, setSelectedFire] = useState(null);
 
   // ── Form state ─────────────────────────────────────────────────────────────

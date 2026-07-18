@@ -65,8 +65,23 @@ export async function fetchCaEvacuations() {
 }
 
 /**
+ * Return the first non-null, non-empty value from a set of candidate keys.
+ * Used to handle field name variations between CalOES service versions.
+ */
+function pick(props, ...keys) {
+  for (const k of keys) {
+    const v = props[k];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return null;
+}
+
+/**
  * Normalize field names defensively – the CalOES service has evolved over time
- * and field names may differ slightly between layers.
+ * and field names may differ slightly between layers. Unknown/missing status
+ * defaults to the least severe "Warning" classification, never "Order" –
+ * mirrors the safe-default convention used by every other evac data source
+ * in this codebase (caEvacZones.js, ipawsEvacGeoJSON.js).
  */
 function normalizeEvacuations(geojson) {
   return {
@@ -76,7 +91,7 @@ function normalizeEvacuations(geojson) {
       return {
         ...f,
         properties: {
-          Zone_Status:       p.STATUS        || 'Evacuation Order',
+          Zone_Status:       pick(p, 'STATUS', 'ZONE_STATUS', 'Zone_Status', 'Status') || 'Evacuation Warning',
           Zone_Name:         p.ZONE_NAME     || p.ZONE_ID || 'Evacuation Zone',
           IncidentName:      p.EVENT_TYPE    || '',
           Agency:            p.CITY          || '',
