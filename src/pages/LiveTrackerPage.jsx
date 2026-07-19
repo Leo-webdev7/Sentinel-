@@ -32,6 +32,9 @@ import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
+import { useNhcWatchesWarnings } from '../hooks/useNhcWatchesWarnings';
+import { filterByInvestStatus } from '../api/nhcStorms';
+import { matchInvestsToOutlookAreas } from '../api/nhcInvests';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { usePlan } from '../hooks/usePlan';
@@ -496,6 +499,49 @@ const flightBounds = useMemo(() => {
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
 
+  const {
+    geoJSON: nhcWatchesWarningsGeoJSON,
+    refresh: refreshNhcWatchesWarnings,
+  } = useNhcWatchesWarnings(nhcTropicalWeatherEnabled);
+
+  // CurrentStorms.json returns Invests (pre-genesis systems) and designated
+  // cyclones in one list; split them so Invests render as their own "X"
+  // marker instead of the generic storm dot. A system moves from one bucket
+  // to the other automatically the moment NHC upgrades its classification.
+  const nhcCycloneCentersGeoJSON = useMemo(
+    () => filterByInvestStatus(nhcCentersGeoJSON, false),
+    [nhcCentersGeoJSON]
+  );
+  const nhcInvestCentersGeoJSON = useMemo(
+    () => filterByInvestStatus(nhcCentersGeoJSON, true),
+    [nhcCentersGeoJSON]
+  );
+  const nhcInvestsGeoJSON = useMemo(
+    () => matchInvestsToOutlookAreas(nhcInvestCentersGeoJSON, nhcDisturbanceGeoJSON),
+    [nhcInvestCentersGeoJSON, nhcDisturbanceGeoJSON]
+  );
+
+  // Plain-object lists for the sidebar Tropical Weather feed (map markers use
+  // the GeoJSON versions above; the sidebar list wants simple JS objects).
+  const nhcInvestsList = useMemo(
+    () => (nhcInvestsGeoJSON.features || []).map((f) => ({
+      id: f.properties.id,
+      lng: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+      ...f.properties,
+    })),
+    [nhcInvestsGeoJSON]
+  );
+  const nhcCyclonesList = useMemo(
+    () => (nhcCycloneCentersGeoJSON?.features || []).map((f) => ({
+      id: f.properties.id,
+      lng: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+      ...f.properties,
+    })),
+    [nhcCycloneCentersGeoJSON]
+  );
+
   // NOAA NWPS water gauges
   const {
     geoJSON: waterGaugesGeoJSON,
@@ -824,6 +870,7 @@ const flightBounds = useMemo(() => {
     if (nhcTropicalWeatherEnabled) {
       refreshNhcStorms();
       refreshNhcTropicalWeather();
+      refreshNhcWatchesWarnings();
     }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
@@ -833,6 +880,7 @@ const flightBounds = useMemo(() => {
     refreshNationalMapColleges,
     refreshNhcStorms,
     refreshNhcTropicalWeather,
+    refreshNhcWatchesWarnings,
     activeMapTab, weatherDataEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     nhcTropicalWeatherEnabled,
@@ -863,6 +911,8 @@ const flightBounds = useMemo(() => {
           weatherAlertFilter={weatherAlertFilter}
           onWeatherAlertFilterChange={setWeatherAlertFilter}
           onWeatherAlertsRefresh={refreshAlerts}
+          nhcInvests={nhcInvestsList}
+          nhcCyclones={nhcCyclonesList}
         />
 
         {/* Map area */}
@@ -900,7 +950,7 @@ const flightBounds = useMemo(() => {
             nationalMapCollegesVisible={schoolsLayerEnabled}
             fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             fireBehaviorModelingVisible={fireBehaviorModelingEnabled}
-            nhcCentersGeoJSON={nhcCentersGeoJSON}
+            nhcCentersGeoJSON={nhcCycloneCentersGeoJSON}
             nhcConesGeoJSON={nhcConesGeoJSON}
             nhcTracksGeoJSON={nhcTracksGeoJSON}
             nhcTrackGeoJSON={nhcTrackGeoJSON}
@@ -908,6 +958,8 @@ const flightBounds = useMemo(() => {
             nhcConeGeoJSON={nhcConeGeoJSON}
             nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
             nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
+            nhcInvestsGeoJSON={nhcInvestsGeoJSON}
+            nhcWatchesWarningsGeoJSON={nhcWatchesWarningsGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}

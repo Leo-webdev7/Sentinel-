@@ -244,7 +244,7 @@ const Legend = memo(function Legend({
 
             {layers.nhcTropicalWeather && (
               <Section title="NHC Tropical Weather">
-                <div className="text-sentinel-300 text-[10px] mb-1">Disturbance outlook</div>
+                <div className="text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
                 <ColorRow color="#FFE566" label="Low formation chance" />
                 <ColorRow color="#FFA040" label="Medium formation chance" />
                 <ColorRow color="#FF4444" label="High formation chance" />
@@ -260,6 +260,12 @@ const Legend = memo(function Legend({
                 <div className="pt-1 mt-1 border-t border-sentinel-700" />
                 <ColorRow color="#888888" label="Past track (observed)" />
                 <ColorRow color="#c0c0c0" label="Forecast cone" />
+                <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                <div className="text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
+                <ColorRow color="#FF0000" label="Hurricane Warning" />
+                <ColorRow color="#FF00FF" label="Hurricane Watch" />
+                <ColorRow color="#FF8C00" label="Tropical Storm Warning" />
+                <ColorRow color="#F0E68C" label="Tropical Storm Watch" />
               </Section>
             )}
 

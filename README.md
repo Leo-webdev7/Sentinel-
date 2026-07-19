@@ -15,6 +15,7 @@ Built with React + Mapbox GL + Tailwind CSS.
 | Drought Monitor | USDA/UNL USDM | No |
 | Smoke Forecast | NOAA HRRR-Smoke WMS | No |
 | GOES Satellite | NOAA GOES East + West (Iowa Environmental Mesonet WMS, configurable) | No |
+| NHC Tropical Weather (Invests, cyclones, cones, watches/warnings) | NOAA/NHC GIS + Tropical Weather Outlook | No |
 
 ## Quick Start
 

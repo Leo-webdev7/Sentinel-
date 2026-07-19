@@ -5,10 +5,11 @@
 
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle, Waves } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
+import TropicalWeatherFeed from './TropicalWeatherFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
@@ -42,11 +43,15 @@ const Sidebar = memo(function Sidebar({
   weatherAlertFilter = 'all',
   onWeatherAlertFilterChange,
   onWeatherAlertsRefresh,
+  nhcInvests = [],
+  nhcCyclones = [],
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
+  const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
+  const nhcActiveCount = nhcInvests.length + nhcCyclones.length;
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -251,6 +256,50 @@ const Sidebar = memo(function Sidebar({
                 <ShieldAlert size={11} />
                 Alerts {alertsCount > 0 && <span className="opacity-70">({alertsCount})</span>}
               </button>
+              <button
+                type="button"
+                onClick={() => setAllHazardFeedTab('tropical')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
+                  allHazardFeedTab === 'tropical'
+                    ? 'bg-cyan-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Waves size={11} />
+                Tropical {nhcActiveCount > 0 && <span className="opacity-70">({nhcActiveCount})</span>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Weather-tab sub-feed tabs */}
+        {isWeatherTab && (
+          <div className="px-3 pt-2 pb-1 shrink-0">
+            <div className="inline-flex w-full rounded-lg border border-sentinel-700 bg-sentinel-800/70 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setWeatherFeedTab('alerts')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
+                  weatherFeedTab === 'alerts'
+                    ? 'bg-sky-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <ShieldAlert size={11} />
+                Alerts {alertsCount > 0 && <span className="opacity-70">({alertsCount})</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeatherFeedTab('tropical')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
+                  weatherFeedTab === 'tropical'
+                    ? 'bg-cyan-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Waves size={11} />
+                Tropical {nhcActiveCount > 0 && <span className="opacity-70">({nhcActiveCount})</span>}
+              </button>
             </div>
           </div>
         )}
@@ -260,6 +309,8 @@ const Sidebar = memo(function Sidebar({
           {isAllHazardTab ? (
             allHazardFeedTab === 'fires' ? (
               <IncidentFeed incidents={incidents} loading={loading} error={error} />
+            ) : allHazardFeedTab === 'tropical' ? (
+              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} />
             ) : (
               <WeatherAlertsFeed
                 alerts={alerts}
@@ -271,14 +322,18 @@ const Sidebar = memo(function Sidebar({
               />
             )
           ) : isWeatherTab ? (
-            <WeatherAlertsFeed
-              alerts={alerts}
-              loading={weatherAlertsLoading}
-              error={weatherAlertsError}
-              activeFilter={weatherAlertFilter}
-              onFilterChange={onWeatherAlertFilterChange}
-              onRefresh={onWeatherAlertsRefresh}
-            />
+            weatherFeedTab === 'tropical' ? (
+              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} />
+            ) : (
+              <WeatherAlertsFeed
+                alerts={alerts}
+                loading={weatherAlertsLoading}
+                error={weatherAlertsError}
+                activeFilter={weatherAlertFilter}
+                onFilterChange={onWeatherAlertFilterChange}
+                onRefresh={onWeatherAlertsRefresh}
+              />
+            )
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}

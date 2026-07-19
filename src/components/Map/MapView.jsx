@@ -45,6 +45,8 @@ import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
+import NhcInvestsLayer from './layers/NhcInvestsLayer';
+import NhcWatchesWarningsLayer from './layers/NhcWatchesWarningsLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import Buildings3DLayer from './layers/Buildings3DLayer';
@@ -87,7 +89,7 @@ const TERRAIN_CONFIG = { source: 'mapbox-dem', exaggeration: 1.0 };
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-invest-circle', 'nhc-ww-line']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -606,6 +608,46 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'nhc-invest-circle': {
+      const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
+      const chanceClass  = chanceColors[p.formationChance] || 'text-zinc-400';
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">
+            Invest {p.investId || p.name}
+          </div>
+          {p.formationChance && (
+            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
+              {p.formationChance} formation chance
+              {(p.day2Percent != null || p.day7Percent != null) && ' · '}
+              {p.day2Percent != null && `2-day: ${p.day2Percent}%`}
+              {p.day2Percent != null && p.day7Percent != null && ' · '}
+              {p.day7Percent != null && `7-day: ${p.day7Percent}%`}
+            </div>
+          )}
+          {p.movement && (
+            <div className="text-gray-400 text-xs mt-0.5">Movement: {p.movement}</div>
+          )}
+          <div className="text-sky-500 text-[10px] mt-0.5 uppercase tracking-wide">NHC Tropical Weather Outlook</div>
+        </>
+      );
+      break;
+    }
+    case 'nhc-ww-line': {
+      const wwColors = {
+        'Hurricane Warning': 'text-red-400', 'Hurricane Watch': 'text-fuchsia-400',
+        'Tropical Storm Warning': 'text-orange-400', 'Tropical Storm Watch': 'text-yellow-200',
+        'Storm Surge Warning': 'text-pink-400', 'Storm Surge Watch': 'text-purple-300',
+      };
+      content = (
+        <>
+          <div className={`font-semibold ${wwColors[p.wwType] || 'text-zinc-300'}`}>{p.wwType || 'Coastal Advisory'}</div>
+          {p.stormName && <div className="text-zinc-300 text-xs mt-0.5">{p.stormName}</div>}
+          <div className="text-zinc-500 text-[10px] mt-0.5">NHC coastal watch/warning</div>
+        </>
+      );
+      break;
+    }
     case 'nhc-centers-circle': {
       const windMph  = p.intensityMph ? `${p.intensityMph} mph` : null;
       const windKts  = p.intensityKts ? `${p.intensityKts} kt`  : null;
@@ -833,6 +875,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.nhcCentersGeoJSON
  * @param {object|null} props.nhcConesGeoJSON
  * @param {object|null} props.nhcTracksGeoJSON
+ * @param {object|null} props.nhcInvestsGeoJSON
+ * @param {object|null} props.nhcWatchesWarningsGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -895,6 +939,8 @@ export default function MapView({
   nhcConeGeoJSON,
   nhcDisturbanceGeoJSON,
   nhcStormLabelsGeoJSON,
+  nhcInvestsGeoJSON,
+  nhcWatchesWarningsGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -1089,6 +1135,8 @@ export default function MapView({
       if (nhcDisturbanceGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
+      if (nhcInvestsGeoJSON?.features?.length) ids.push('nhc-invest-circle');
+      if (nhcWatchesWarningsGeoJSON?.features?.length) ids.push('nhc-ww-line');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     return ids;
@@ -1099,7 +1147,7 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
+      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON, nhcInvestsGeoJSON, nhcWatchesWarningsGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       fireBehaviorModelingVisible, fireBehaviorModelingGeoJSON,
@@ -1385,6 +1433,50 @@ export default function MapView({
           expires:   p.expires,
         });
       }
+    } else if (feature.layer.id === 'nhc-invest-circle') {
+      selectFire({
+        type:            'nhc-invest',
+        id:              p.id,
+        name:            p.name,
+        investId:        p.investId,
+        lat:             evt.lngLat.lat,
+        lng:             evt.lngLat.lng,
+        movement:        p.movement,
+        pressure:        p.pressure,
+        intensityMph:    p.intensityMph,
+        formationChance: p.formationChance,
+        day2Percent:     p.day2Percent,
+        day7Percent:     p.day7Percent,
+        outlookText:     p.outlookText,
+        lastUpdate:      p.lastUpdate,
+      });
+    } else if (feature.layer.id === 'nhc-centers-circle') {
+      selectFire({
+        type:         'nhc-storm',
+        id:           p.id,
+        name:         p.name,
+        classification: p.classification,
+        category:     p.category,
+        lat:          evt.lngLat.lat,
+        lng:          evt.lngLat.lng,
+        movement:     p.movement,
+        pressure:     p.pressure,
+        intensityMph: p.intensityMph,
+        intensityKts: p.intensityKts,
+        advNum:       p.advNum,
+        advUrl:       p.advUrl,
+        lastUpdate:   p.lastUpdate,
+      });
+    } else if (feature.layer.id === 'nhc-ww-line') {
+      selectFire({
+        type:      'nhc-watch-warning',
+        id:        p.id,
+        name:      p.wwType || 'Coastal Advisory',
+        wwType:    p.wwType,
+        stormName: p.stormName,
+        lat:       evt.lngLat.lat,
+        lng:       evt.lngLat.lng,
+      });
     } else if (feature.layer.id === 'spc-md-fill') {
       // Open the SPC MD page in a new tab when the user clicks a polygon
       if (p.url) {
@@ -1565,6 +1657,18 @@ export default function MapView({
           centersGeoJSON={nhcCentersGeoJSON}
           conesGeoJSON={nhcConesGeoJSON}
           tracksGeoJSON={nhcTracksGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
+        />
+
+        {/* NHC Invests – pre-genesis systems (90L, 91L, …), distinct "X" marker */}
+        <NhcInvestsLayer
+          investsGeoJSON={nhcInvestsGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
+        />
+
+        {/* NHC coastal watches / warnings for active cyclones */}
+        <NhcWatchesWarningsLayer
+          geoJSON={nhcWatchesWarningsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
         />
 
