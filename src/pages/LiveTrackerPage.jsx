@@ -302,7 +302,7 @@ export default function LiveTrackerPage() {
     perimetersCount,
     dotsCount,
     refresh: refreshPerimeters,
-  } = useMergedFireData(5, wildfireDataEnabled, true);
+  } = useMergedFireData(0, wildfireDataEnabled, true);
 
   const {
     incidents: calFireIncidents,

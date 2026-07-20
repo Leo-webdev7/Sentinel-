@@ -29,12 +29,9 @@
  * When VITE_IPAWS_ALERTS_URL is set (default in dev: same-origin `/alerts` via Vite proxy),
  * CAP alerts with polygon/circle geometry are merged in as additional features (source: ipaws).
  *
- * Deduplication
- * ─────────────
- * When a feature from the PROD service is geographically identical (same centroid
- * within ~0.001°) or has the same zone name in the same county as a hosted feature,
- * the PROD record wins (richer metadata) and the hosted duplicate is dropped.
- * Features present only in one source are kept as-is.
+ * Both sources are shown at once, even when a zone appears in both — one
+ * source mislabeling a zone's status must never hide the other source's
+ * correctly-labeled copy of it.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -114,53 +111,6 @@ function normaliseHostedFeature(f) {
   };
 }
 
-// ─── Deduplication ───────────────────────────────────────────────────────────
-
-/**
- * Build a rough centroid key for a GeoJSON feature.
- * For Polygon / MultiPolygon: average of first ring's first coordinate.
- * Falls back to "0,0" if the geometry is unparseable.
- */
-function centroidKey(geometry) {
-  try {
-    if (!geometry) return '0,0';
-    const coords =
-      geometry.type === 'Polygon'
-        ? geometry.coordinates[0]
-        : geometry.type === 'MultiPolygon'
-        ? geometry.coordinates[0][0]
-        : null;
-    if (!coords?.length) return '0,0';
-    const lng = coords.reduce((s, c) => s + c[0], 0) / coords.length;
-    const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
-    return `${lng.toFixed(3)},${lat.toFixed(3)}`;
-  } catch {
-    return '0,0';
-  }
-}
-
-/**
- * Remove hosted features that are duplicated by a PROD feature.
- * A "duplicate" is detected when both the centroid key AND the zone name
- * match (case-insensitive), OR when the centroid alone matches within 0.001°.
- */
-function deduplicateAgainstProd(hostedFeatures, prodFeatures) {
-  const prodCentroids = new Set(prodFeatures.map(f => centroidKey(f.geometry)));
-
-  const prodNamesByCounty = new Map();
-  prodFeatures.forEach(f => {
-    const key = `${(f.properties.county || '').toLowerCase()}:${(f.properties.zoneName || '').toLowerCase()}`;
-    prodNamesByCounty.set(key, true);
-  });
-
-  return hostedFeatures.filter(f => {
-    if (prodCentroids.has(centroidKey(f.geometry))) return false;
-    const nameKey = `${(f.properties.county || '').toLowerCase()}:${(f.properties.zoneName || '').toLowerCase()}`;
-    if (prodNamesByCounty.has(nameKey)) return false;
-    return true;
-  });
-}
-
 // Client-side IPAWS alert cache — mirrors poller server's merge/persist behavior
 // so alerts don't disappear prematurely in production (where edge functions are stateless).
 const _ipawsCache = new Map();
@@ -235,16 +185,16 @@ export function useCombinedEvacZones(enabled = true) {
     const normProd   = (prod?.features   || []).map(normaliseProdFeature);
     const normHosted = (hosted?.features || []).map(normaliseHostedFeature);
 
-    // PROD features take precedence; remove hosted duplicates.
-    const uniqueHosted = deduplicateAgainstProd(normHosted, normProd);
-
+    // Show both sources — don't let one suppress the other. A dedup pass here
+    // previously let PROD "win" over hosted duplicates even when PROD's status
+    // was wrong, hiding a correctly-labeled hosted zone behind a mislabeled one.
     const merged = {
       type: 'FeatureCollection',
-      features: [...normProd, ...uniqueHosted, ...ipawsFeatures],
+      features: [...normProd, ...normHosted, ...ipawsFeatures],
     };
 
     console.log(
-      `[EvacZones] Loaded: ${normProd.length} prod + ${uniqueHosted.length} hosted + ${ipawsFeatures.length} ipaws = ${merged.features.length} total`
+      `[EvacZones] Loaded: ${normProd.length} prod + ${normHosted.length} hosted + ${ipawsFeatures.length} ipaws = ${merged.features.length} total`
     );
     if (merged.features.length > 0) {
       const sample = merged.features[0];
