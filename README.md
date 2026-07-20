@@ -9,7 +9,7 @@ Built with React + Mapbox GL + Tailwind CSS.
 |-------|------------|-----------------|
 | Fire Hotspots (VIIRS) | NASA FIRMS | Yes (free) |
 | Fire Perimeters | NIFC WFIGS ArcGIS | No |
-| Historical Fire Perimeters | CAL FIRE FRAP ArcGIS | No |
+| Historical Fire Perimeters | CAL FIRE FRAP ArcGIS (falls back to data.ca.gov) | No |
 | AQI Stations | EPA AirNow | Yes (free) |
 | Weather Alerts | NOAA NWS | No |
 | Drought Monitor | USDA/UNL USDM | No |

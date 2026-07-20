@@ -21,7 +21,21 @@ const CalFirePerimetersLayer = memo(function CalFirePerimetersLayer({ geoJSON, v
         layout={{ visibility: vis }}
         paint={{
           'fill-color': '#92400e',
-          'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.22, 0.1],
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.28, 0.14],
+        }}
+      />
+      {/* Dark casing beneath the dashed line so the scar stays legible over
+          satellite imagery, whose brightness/color varies too much for the
+          amber line alone to read reliably (mirrors fire-perimeters-line-casing) */}
+      <Layer
+        id="calfire-historical-perimeters-line-casing"
+        type="line"
+        source="calfire-historical-perimeters"
+        layout={{ visibility: vis }}
+        paint={{
+          'line-color': '#000000',
+          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 4, 2.4],
+          'line-opacity': 0.55,
         }}
       />
       <Layer
@@ -30,10 +44,10 @@ const CalFirePerimetersLayer = memo(function CalFirePerimetersLayer({ geoJSON, v
         source="calfire-historical-perimeters"
         layout={{ visibility: vis }}
         paint={{
-          'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#f59e0b', '#92400e'],
-          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.5, 1.2],
+          'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#fbbf24', '#f59e0b'],
+          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.5, 1.4],
           'line-dasharray': [2, 1.5],
-          'line-opacity': 0.85,
+          'line-opacity': 1,
         }}
       />
       <Layer
@@ -57,9 +71,9 @@ const CalFirePerimetersLayer = memo(function CalFirePerimetersLayer({ geoJSON, v
           'text-max-width': 10,
         }}
         paint={{
-          'text-color': '#d1a374',
-          'text-halo-color': 'rgba(0,0,0,0.8)',
-          'text-halo-width': 1.5,
+          'text-color': '#fcd34d',
+          'text-halo-color': 'rgba(0,0,0,0.85)',
+          'text-halo-width': 1.8,
         }}
       />
     </Source>

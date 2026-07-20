@@ -122,4 +122,50 @@ describe('fetchCalFireHistoricalPerimeters', () => {
       expect.stringContaining('services1.arcgis.com'), expect.anything(), expect.anything(), expect.anything()
     );
   });
+
+  it('falls back to data.ca.gov when both ArcGIS sources fail, resolving the resource via CKAN package_show', async () => {
+    vi.useFakeTimers();
+    fetchWithCache.mockImplementation(async (url) => {
+      if (url.includes('egis.fire.ca.gov') || url.includes('services1.arcgis.com')) {
+        throw new Error('ArcGIS unavailable');
+      }
+      if (url.includes('data.ca.gov/api/3/action/package_show')) {
+        return {
+          success: true,
+          result: {
+            resources: [
+              { format: 'CSV', url: 'https://data.ca.gov/dataset/fire-perimeters.csv' },
+              { format: 'GeoJSON', url: 'https://data.ca.gov/dataset/fire-perimeters.geojson' },
+            ],
+          },
+        };
+      }
+      if (url === 'https://data.ca.gov/dataset/fire-perimeters.geojson') {
+        return {
+          type: 'FeatureCollection',
+          features: [
+            { properties: { FIRE_NAME: 'Open Data Fire', YEAR_: 2021, GIS_ACRES: 900 } },
+            { properties: { FIRE_NAME: 'Too Old Fire', YEAR_: 1999, GIS_ACRES: 900 } },
+          ],
+        };
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const promise = fetchCalFireHistoricalPerimeters({ minYear: 2018 });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    vi.useRealTimers();
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0].properties.FireName).toBe('Open Data Fire');
+    expect(fetchWithCache).toHaveBeenCalledWith(
+      expect.stringContaining('data.ca.gov/api/3/action/package_show'),
+      expect.anything(), expect.anything(), expect.anything()
+    );
+    expect(fetchWithCache).toHaveBeenCalledWith(
+      'https://data.ca.gov/dataset/fire-perimeters.geojson',
+      expect.anything(), expect.anything(), expect.anything()
+    );
+  });
 });
