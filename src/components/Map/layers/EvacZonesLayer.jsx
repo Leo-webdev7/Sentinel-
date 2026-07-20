@@ -1,10 +1,11 @@
 /**
  * EvacZonesLayer.jsx
  * Renders California evacuation orders, warnings, and watches as
- * light, flat-color polygon overlays with bold black boundaries — kept
- * translucent enough that fire perimeters and streets underneath stay
- * legible. This is a permanent map layer: it is always rendered on the
- * wildfire and all-hazard tabs and is not user-toggleable.
+ * flat-color polygon overlays with a bold outline colored to match each
+ * zone's severity — kept translucent enough that fire perimeters and
+ * streets underneath stay legible. This is a permanent map layer: it is
+ * always rendered on the wildfire and all-hazard tabs and is not
+ * user-toggleable.
  *
  * Accepts data from the combined CalOES hosted-view + PROD feed
  * (see useCombinedEvacZones). Both sources are normalised to the
@@ -66,10 +67,10 @@ const COLOR_MATCH = [
 const OPACITY_MATCH = [
   'match',
   ['get', 'warningType'],
-  'Evacuation Order',   0.35,
-  'Evacuation Warning', 0.28,
-  'Evacuation Watch',   0.22,
-  /* default */         0.25,
+  'Evacuation Order',   0.45,
+  'Evacuation Warning', 0.35,
+  'Evacuation Watch',   0.28,
+  /* default */         0.32,
 ];
 
 const LINE_WIDTH_MATCH = [
@@ -154,16 +155,16 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           }}
         />
 
-        {/* Bold black boundary */}
+        {/* Boundary colored to match each zone's severity (red order / orange warning / yellow watch) */}
         <Layer
           id="evac-zones-line"
           type="line"
           source="evac-zones"
           layout={{ visibility: vis }}
           paint={{
-            'line-color':   '#000000',
+            'line-color':   COLOR_MATCH,
             'line-width':   LINE_WIDTH_MATCH,
-            'line-opacity': 0.95,
+            'line-opacity': 1,
           }}
         />
 
