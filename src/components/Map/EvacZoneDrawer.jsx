@@ -10,14 +10,19 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Map, { NavigationControl } from 'react-map-gl';
+import Map, { NavigationControl, Popup } from 'react-map-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   PenTool, Trash2, CheckCircle2, AlertCircle, RefreshCw,
-  X, ChevronDown, MapPin, RotateCcw,
+  X, ChevronDown, MapPin, RotateCcw, Flame,
 } from 'lucide-react';
+import { useMergedFireData } from '../../hooks/useMergedFireData';
+import FireIncidentsLayer from './layers/FireIncidentsLayer';
+import FirePerimetersLayer from './layers/FirePerimetersLayer';
+
+const FIRE_INTERACTIVE_LAYER_IDS = ['fire-incidents-circle', 'fire-perimeter-centroids-circle'];
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -145,6 +150,16 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
   const [drawnFeatures, setDrawnFeatures] = useState([]);
   const [isDrawingActive, setIsDrawingActive] = useState(false);
 
+  // ── Active wildfires shown on the map so reporters can find fires to zone around ──
+  const {
+    perimetersGeoJSON,
+    incidentDotsGeoJSON,
+    loading: firesLoading,
+    dotsCount,
+    perimetersCount,
+  } = useMergedFireData(0, true, true);
+  const [selectedFire, setSelectedFire] = useState(null);
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [title, setTitle]               = useState('');
   const [description, setDescription]  = useState('');
@@ -220,6 +235,25 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
       }
     };
   }, []);
+
+  // ── Wildfire point/perimeter selection ─────────────────────────────────────
+  const handleMapClick = useCallback((evt) => {
+    if (isDrawingActive) return; // don't intercept clicks while placing polygon vertices
+    const feature = evt.features?.[0];
+    if (!feature) {
+      setSelectedFire(null);
+      return;
+    }
+    const props = feature.properties || {};
+    const [lng, lat] = feature.geometry?.coordinates || [evt.lngLat.lng, evt.lngLat.lat];
+    setSelectedFire({
+      lng,
+      lat,
+      name: props.IncidentName || 'Unnamed Fire',
+      acres: props.GISAcres != null && props.GISAcres !== '' ? Number(props.GISAcres) : null,
+      contained: props.PercentContained != null && props.PercentContained !== '' ? Number(props.PercentContained) : null,
+    });
+  }, [isDrawingActive]);
 
   // ── Drawing controls ───────────────────────────────────────────────────────
   function startDrawing() {
@@ -317,7 +351,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
       </div>
 
       {/* ── Interactive map ── */}
-      <div className="rounded-xl overflow-hidden border border-[#30363d]" style={{ height: 400 }}>
+      <div className="relative rounded-xl overflow-hidden border border-[#30363d]" style={{ height: 400 }}>
         <Map
           initialViewState={{ longitude: -114.5, latitude: 39.5, zoom: 5 }}
           style={{ width: '100%', height: '100%' }}
@@ -328,11 +362,59 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
           }
           mapboxAccessToken={MAPBOX_TOKEN || undefined}
           onLoad={handleMapLoad}
+          onClick={handleMapClick}
+          interactiveLayerIds={isDrawingActive ? [] : FIRE_INTERACTIVE_LAYER_IDS}
           cursor={isDrawingActive ? 'crosshair' : 'default'}
         >
+          <FirePerimetersLayer geoJSON={perimetersGeoJSON} visible />
+          <FireIncidentsLayer geoJSON={incidentDotsGeoJSON} visible />
+
+          {selectedFire && (
+            <Popup
+              longitude={selectedFire.lng}
+              latitude={selectedFire.lat}
+              closeOnClick={false}
+              onClose={() => setSelectedFire(null)}
+              anchor="bottom"
+              offset={12}
+              className="sentinel-popup"
+            >
+              <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px] text-white">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <Flame size={12} className="text-orange-400 shrink-0" />
+                  {selectedFire.name}
+                </p>
+                {(selectedFire.acres != null || selectedFire.contained != null) && (
+                  <p className="text-xs text-[#8b949e] mt-0.5">
+                    {selectedFire.acres != null ? `${selectedFire.acres.toLocaleString('en-US', { maximumFractionDigits: 0 })} acres` : ''}
+                    {selectedFire.acres != null && selectedFire.contained != null ? ' · ' : ''}
+                    {selectedFire.contained != null ? `${selectedFire.contained}% contained` : ''}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setIncidentName(selectedFire.name); setSelectedFire(null); }}
+                  className="mt-2 text-xs font-semibold text-[#0096ff] hover:underline"
+                >
+                  Use as linked incident
+                </button>
+              </div>
+            </Popup>
+          )}
+
           <NavigationControl position="top-right" />
         </Map>
+
+        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-[11px] text-[#c9d1d9] pointer-events-none">
+          <Flame size={11} className="text-orange-400" />
+          {firesLoading
+            ? 'Loading active wildfires…'
+            : `${perimetersCount + dotsCount} active wildfire${perimetersCount + dotsCount !== 1 ? 's' : ''} shown`}
+        </div>
       </div>
+      <p className="text-xs text-[#484f58] -mt-3">
+        Click a wildfire marker on the map to see its name and link it to your zone.
+      </p>
 
       {/* ── Map toolbar ── */}
       <div className="flex items-center gap-3 flex-wrap">

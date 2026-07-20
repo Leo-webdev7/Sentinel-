@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp, Building2, History,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -15,8 +15,9 @@ import { useApp } from '../../context/AppContext';
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
+  calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
-  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS (CAP polygons)', icon: AlertTriangle, color: '#ef4444' },
+  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS (CAP polygons)', icon: AlertTriangle, color: '#ef4444', alwaysOn: true },
   reporterEvacZones: { label: 'Reporter Evac Zones', sublabel: 'Field-reported boundaries',   icon: Users,        color: '#f97316' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -34,7 +35,7 @@ const LAYER_DEFS = {
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
-  nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC storms · disturbance outlook', icon: Waves, color: '#38bdf8' },
+  nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC invests · cyclones · watches/warnings', icon: Waves, color: '#38bdf8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
 };
 
@@ -50,7 +51,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
         {
           label: 'Evacuation',
@@ -120,7 +121,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
       ],
     },
@@ -219,9 +220,37 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, alwaysOn }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
+
+  if (alwaysOn) {
+    return (
+      <div
+        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
+        aria-label={`${label} is always visible and cannot be turned off`}
+      >
+        <div
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+          style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
+        >
+          <Icon size={14} style={{ color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-white truncate">{label}</div>
+          <div className="text-[10px] text-zinc-400 leading-snug line-clamp-2">{sublabel}</div>
+        </div>
+        <span
+          className="shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide
+                     text-emerald-400 border border-emerald-500/40 bg-emerald-500/10 rounded-full px-2 py-0.5"
+          title="This layer is always on and can't be toggled off"
+        >
+          <Lock size={9} />
+          Always on
+        </span>
+      </div>
+    );
+  }
 
   if (locked) {
     return (
@@ -290,6 +319,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
+  fireBehaviorModelingEntitled = false,
   mapType = 'satellite',
   onMapTypeChange,
   measureActive = false,
@@ -319,7 +349,23 @@ const LayerControl = memo(function LayerControl({
       color: '#a78bfa',
       locked: !infrastructureLayersEntitled,
     },
-  ], [infrastructureLayersEntitled]);
+    {
+      key: 'fireBehaviorModeling',
+      label: 'Fire Behavior Modeling',
+      sublabel: 'Select a fire for its +1h / +3h / +6h spread projection',
+      icon: TrendingUp,
+      color: '#ff8c1a',
+      locked: !fireBehaviorModelingEntitled,
+    },
+    {
+      key: 'buildings3d',
+      label: '3D Buildings',
+      sublabel: 'Mapbox 3D building extrusions',
+      icon: Building2,
+      color: '#38bdf8',
+      locked: false,
+    },
+  ], [infrastructureLayersEntitled, fireBehaviorModelingEntitled]);
 
   const sections = useMemo(() => {
     const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
@@ -331,8 +377,8 @@ const LayerControl = memo(function LayerControl({
       ...base,
       {
         id: 'wf-infra',
-        title: 'Infrastructure',
-        subtitle: 'Energy & key facilities (Pro)',
+        title: 'Infrastructure & Modeling',
+        subtitle: 'Energy & key facilities (Pro) · spread modeling & 3D buildings (Free)',
         groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
@@ -517,6 +563,7 @@ const LayerControl = memo(function LayerControl({
                                   sublabel={def.sublabel}
                                   icon={def.icon}
                                   color={def.color}
+                                  alwaysOn={def.alwaysOn}
                                 />
                               );
                             })}

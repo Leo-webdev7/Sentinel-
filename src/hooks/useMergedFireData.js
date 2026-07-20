@@ -217,7 +217,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
 }
 
 /**
- * @param {number} minAcres  Minimum fire size to include (default 100 ac)
+ * @param {number} minAcres  Minimum fire size to include (default 0 – no filtering)
  * @returns {{
  *   perimetersGeoJSON: object|null,
  *   incidentDotsGeoJSON: object|null,
@@ -228,7 +228,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
  *   refresh: function,
  * }}
  */
-export function useMergedFireData(minAcres = 100, enabled = true, calFireIncludeInactive = false) {
+export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeInactive = false) {
   const [perimetersGeoJSON,   setPerimetersGeoJSON]   = useState(null);
   const [incidentDotsGeoJSON, setIncidentDotsGeoJSON] = useState(null);
   const [loading,             setLoading]             = useState(true);

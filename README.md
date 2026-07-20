@@ -9,11 +9,13 @@ Built with React + Mapbox GL + Tailwind CSS.
 |-------|------------|-----------------|
 | Fire Hotspots (VIIRS) | NASA FIRMS | Yes (free) |
 | Fire Perimeters | NIFC WFIGS ArcGIS | No |
+| Historical Fire Perimeters | CAL FIRE FRAP ArcGIS (falls back to data.ca.gov) | No |
 | AQI Stations | EPA AirNow | Yes (free) |
 | Weather Alerts | NOAA NWS | No |
 | Drought Monitor | USDA/UNL USDM | No |
 | Smoke Forecast | NOAA HRRR-Smoke WMS | No |
 | GOES Satellite | NOAA GOES East + West (Iowa Environmental Mesonet WMS, configurable) | No |
+| NHC Tropical Weather (Invests, cyclones, cones, watches/warnings) | NOAA/NHC GIS + Tropical Weather Outlook | No |
 
 ## Quick Start
 

@@ -20,9 +20,6 @@ const HEADERS = { Accept: 'application/json' };
 
 /** Convert the NWPS gauge list response into a GeoJSON FeatureCollection. */
 function gaugesToGeoJSON(gauges) {
-  if (gauges.length > 0) {
-    console.log('[NWPS] First gauge raw keys:', Object.keys(gauges[0]), gauges[0]);
-  }
   const features = [];
   for (const g of gauges) {
     // Handle coordinates from direct properties or nested geometry
@@ -86,10 +83,8 @@ export async function fetchWaterGauges() {
       longitude: f.geometry?.coordinates?.[0],
     }));
   } else {
-    console.warn('[NWPS] Unexpected /gauges response shape:', Object.keys(json));
     list = [];
   }
-  console.log(`[NWPS] Loaded ${list.length} gauges`);
   const geoJSON = gaugesToGeoJSON(list);
 
   setCached(cacheKey, geoJSON, 5 * 60 * 1000);

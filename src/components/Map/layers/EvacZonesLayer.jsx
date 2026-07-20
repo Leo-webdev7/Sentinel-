@@ -1,7 +1,11 @@
 /**
  * EvacZonesLayer.jsx
  * Renders California evacuation orders, warnings, and watches as
- * semi-transparent polygon overlays on the wildfire map tab.
+ * flat-color polygon overlays with a bold outline colored to match each
+ * zone's severity — kept translucent enough that fire perimeters and
+ * streets underneath stay legible. This is a permanent map layer: it is
+ * always rendered on the wildfire and all-hazard tabs and is not
+ * user-toggleable.
  *
  * Accepts data from the combined CalOES hosted-view + PROD feed
  * (see useCombinedEvacZones). Both sources are normalised to the
@@ -63,18 +67,19 @@ const COLOR_MATCH = [
 const OPACITY_MATCH = [
   'match',
   ['get', 'warningType'],
-  'Evacuation Order',   0.60,
-  'Evacuation Warning', 0.50,
-  'Evacuation Watch',   0.40,
-  /* default */         0.45,
+  'Evacuation Order',   0.45,
+  'Evacuation Warning', 0.35,
+  'Evacuation Watch',   0.28,
+  /* default */         0.32,
 ];
 
 const LINE_WIDTH_MATCH = [
   'match',
   ['get', 'warningType'],
-  'Evacuation Order',   2.5,
-  'Evacuation Warning', 2.0,
-  /* default */         1.5,
+  'Evacuation Order',   3.5,
+  'Evacuation Warning', 3.0,
+  'Evacuation Watch',   2.5,
+  /* default */         2.5,
 ];
 
 export default function EvacZonesLayer({ geoJSON, visible }) {
@@ -98,12 +103,6 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
         };
       })
       .filter(Boolean);
-    console.log(`[EvacZonesLayer] Dots computed: ${dots.length} from ${data.features.length} features`);
-    if (dots.length > 0) {
-      dots.forEach((d, i) => {
-        console.log(`[EvacZonesLayer]   Dot ${i}: id=${d.id} lng=${d.geometry.coordinates[0].toFixed(3)} lat=${d.geometry.coordinates[1].toFixed(3)} src=${d.properties.source} type=${d.properties.warningType}`);
-      });
-    }
     return {
       type: 'FeatureCollection',
       features: dots,
@@ -115,10 +114,7 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
     if (!map) return;
 
     const fc = data?.features?.length ?? 0;
-    if (fc !== prevCountRef.current) {
-      prevCountRef.current = fc;
-      console.log(`[EvacZonesLayer] Updating map source: ${fc} features`);
-    }
+    prevCountRef.current = fc;
 
     try {
       const source = map.getSource('evac-zones');
@@ -159,7 +155,7 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           }}
         />
 
-        {/* Outline */}
+        {/* Boundary colored to match each zone's severity (red order / orange warning / yellow watch) */}
         <Layer
           id="evac-zones-line"
           type="line"
@@ -168,7 +164,7 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           paint={{
             'line-color':   COLOR_MATCH,
             'line-width':   LINE_WIDTH_MATCH,
-            'line-opacity': 0.9,
+            'line-opacity': 1,
           }}
         />
 
@@ -181,15 +177,17 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
           layout={{
             visibility: vis,
             'text-field': ['coalesce', ['get', 'zoneName'], ''],
-            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-            'text-size': 11,
+            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+            'text-size': 13,
             'text-anchor': 'center',
-            'text-max-width': 10,
+            'text-max-width': 9,
+            'text-transform': 'uppercase',
+            'text-letter-spacing': 0.05,
           }}
           paint={{
             'text-color': '#ffffff',
-            'text-halo-color': 'rgba(0,0,0,0.85)',
-            'text-halo-width': 2,
+            'text-halo-color': 'rgba(0,0,0,0.9)',
+            'text-halo-width': 2.2,
           }}
         />
       </Source>
