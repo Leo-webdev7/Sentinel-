@@ -57,6 +57,43 @@ function stormCategory(intensityKts, classification) {
   return { label: classification || 'Tropical Cyclone', rank: 0 };
 }
 
+// Pre-genesis classifications: a system NHC is monitoring for possible
+// development but has not yet designated a tropical/subtropical cyclone.
+// Everything else (TD, SD, TS, SS, HU, TY, EX, PT) already has an advisory
+// track and is rendered as a full cyclone instead.
+const INVEST_CLASSIFICATIONS = new Set(['DB', 'LO', 'WV']);
+
+/**
+ * True when a CurrentStorms.json classification code represents a pre-storm
+ * Invest / disturbance rather than a designated tropical or post-tropical cyclone.
+ * @param {string} classification
+ * @returns {boolean}
+ */
+export function isInvestClassification(classification) {
+  return INVEST_CLASSIFICATIONS.has(String(classification || '').toUpperCase());
+}
+
+// ATCF basin prefix → conventional Invest letter suffix (e.g. "AL92" → "92L")
+const INVEST_BASIN_SUFFIX = { AL: 'L', EP: 'E', CP: 'C', WP: 'W', IO: 'A', SH: 'S' };
+
+/**
+ * Format an NHC bin number (e.g. "AL92") as the conventional Invest ID
+ * (e.g. "92L"). Falls back to the raw storm id when the bin number is
+ * missing or doesn't match the expected two-letter/two-digit shape.
+ * @param {string} binNumber
+ * @param {string} [fallbackId]
+ * @returns {string}
+ */
+export function formatInvestId(binNumber, fallbackId) {
+  const raw = String(binNumber || '').toUpperCase().trim();
+  const m = raw.match(/^([A-Z]{2})(\d{2})$/);
+  if (m) {
+    const suffix = INVEST_BASIN_SUFFIX[m[1]] || m[1][0];
+    return `${m[2]}${suffix}`;
+  }
+  return raw || String(fallbackId || '').toUpperCase();
+}
+
 /**
  * Map a storm's intensity/classification to a hex colour for map rendering.
  * Matches the NOAA Saffir–Simpson colour convention adapted for a dark map.
@@ -97,6 +134,8 @@ export async function fetchNhcActiveStorms() {
       const lon = parseNhcCoord(storm.longitude);
       if (lat === null || lon === null) return [];
       const { label } = stormCategory(storm.intensity, storm.classification);
+      const isInvest = isInvestClassification(storm.classification);
+      const binNumber = storm.binNumber || storm.invest || '';
       return [{
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
@@ -112,6 +151,9 @@ export async function fetchNhcActiveStorms() {
           advNum:       storm.publicAdvNum || '',
           advUrl:       storm.publicAdv || '',
           lastUpdate:   storm.lastUpdate || '',
+          binNumber,
+          isInvest,
+          investId: isInvest ? formatInvestId(binNumber, storm.id) : '',
         },
       }];
     });
@@ -196,4 +238,24 @@ export async function fetchAllNhcData() {
   };
   setCached(cacheKey, result, CACHE_TTL);
   return result;
+}
+
+/**
+ * Split a storm-centres FeatureCollection into Invests (pre-genesis systems)
+ * and designated cyclones. Used to keep the plain "generic storm dot" layer
+ * showing only named/numbered cyclones once a dedicated Invest layer exists —
+ * a system automatically moves from one bucket to the other the moment NHC
+ * upgrades its classification, with no extra code needed.
+ * @param {object} centersGeoJSON
+ * @param {boolean} wantInvest
+ * @returns {object} filtered FeatureCollection
+ */
+export function filterByInvestStatus(centersGeoJSON, wantInvest) {
+  if (!centersGeoJSON?.features) return centersGeoJSON;
+  return {
+    ...centersGeoJSON,
+    features: centersGeoJSON.features.filter(
+      (f) => Boolean(f.properties?.isInvest) === wantInvest
+    ),
+  };
 }

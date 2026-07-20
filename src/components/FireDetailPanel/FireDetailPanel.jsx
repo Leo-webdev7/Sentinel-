@@ -9,7 +9,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
-  GraduationCap, FileText, Copy,
+  GraduationCap, FileText, Copy, Waves, Navigation,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -1240,6 +1240,197 @@ function NationalMapCollegeDetail({ fire }) {
   );
 }
 
+// ─── NHC Tropical Weather Detail ─────────────────────────────────────────────
+
+const NHC_CHANCE_COLOR = { HIGH: '#FF4444', MEDIUM: '#FFA040', LOW: '#FFE566' };
+
+function NhcInvestDetail({ fire }) {
+  const chanceColor = NHC_CHANCE_COLOR[fire.formationChance] || '#94a3b8';
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 rounded-lg" style={{ backgroundColor: `${chanceColor}30` }}>
+          <Waves size={18} style={{ color: chanceColor }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">Invest {fire.investId || fire.name}</h3>
+          <p className="text-sentinel-400 text-xs">NHC Tropical Weather Outlook</p>
+        </div>
+      </div>
+
+      {(fire.day2Percent != null || fire.day7Percent != null) && (
+        <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
+          <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+            <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">2-Day</span>
+            <span className="text-2xl font-black text-white leading-none">
+              {fire.day2Percent != null ? `${fire.day2Percent}%` : '—'}
+            </span>
+          </div>
+          <div className="w-px bg-sentinel-700 my-3" />
+          <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+            <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">7-Day</span>
+            <span className="text-2xl font-black text-white leading-none">
+              {fire.day7Percent != null ? `${fire.day7Percent}%` : '—'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {fire.formationChance && (
+        <div
+          className="inline-flex items-center px-2 py-0.5 mb-4 rounded-full text-xs font-semibold border"
+          style={{ backgroundColor: `${chanceColor}22`, borderColor: `${chanceColor}66`, color: chanceColor }}
+        >
+          {fire.formationChance} chance of tropical cyclone formation
+        </div>
+      )}
+
+      <div className="space-y-2 text-xs text-sentinel-400 mb-4">
+        {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+          <div className="flex items-center gap-2">
+            <MapPin size={12} />
+            <span>{fire.lat.toFixed(1)}°N, {Math.abs(fire.lng).toFixed(1)}°W</span>
+          </div>
+        )}
+        {fire.movement && (
+          <div className="flex items-center gap-2">
+            <Navigation size={12} />
+            <span>Movement: {fire.movement}</span>
+          </div>
+        )}
+        {fire.lastUpdate && (
+          <div className="flex items-center gap-2">
+            <Clock size={12} />
+            <span>Updated: {fire.lastUpdate}</span>
+          </div>
+        )}
+      </div>
+
+      {fire.outlookText && (
+        <div className="mt-2">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Outlook</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.outlookText}</p>
+        </div>
+      )}
+
+      <a
+        href="https://www.nhc.noaa.gov/gtwo.php"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 mt-4 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        NHC Tropical Weather Outlook
+      </a>
+    </>
+  );
+}
+
+function NhcStormDetail({ fire }) {
+  const color = fire.category?.includes('5') ? '#c026d3' :
+    fire.category?.includes('4') ? '#ef4444' :
+    fire.category?.includes('3') ? '#f97316' :
+    fire.category?.includes('2') ? '#eab308' :
+    fire.category?.includes('1') ? '#facc15' :
+    fire.category?.toLowerCase().includes('storm') ? '#38bdf8' : '#94a3b8';
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}30` }}>
+          <Waves size={18} style={{ color }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{fire.name}</h3>
+          <p className="text-xs font-medium" style={{ color }}>{fire.category}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {fire.intensityMph > 0 && (
+          <StatBlock label="Max Wind" value={`${fire.intensityMph} mph`} icon={Wind} color="text-white" />
+        )}
+        {fire.intensityKts > 0 && (
+          <StatBlock label="Max Wind (kt)" value={`${fire.intensityKts} kt`} />
+        )}
+        {fire.pressure && (
+          <StatBlock label="Pressure" value={`${fire.pressure} mb`} />
+        )}
+        {fire.advNum && (
+          <StatBlock label="Advisory" value={`#${fire.advNum}`} icon={Info} />
+        )}
+      </div>
+
+      <div className="space-y-2 text-xs text-sentinel-400 mb-4">
+        {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+          <div className="flex items-center gap-2">
+            <MapPin size={12} />
+            <span>{fire.lat.toFixed(1)}°N, {Math.abs(fire.lng).toFixed(1)}°W</span>
+          </div>
+        )}
+        {fire.movement && (
+          <div className="flex items-center gap-2">
+            <Navigation size={12} />
+            <span>Movement: {fire.movement}</span>
+          </div>
+        )}
+        {fire.lastUpdate && (
+          <div className="flex items-center gap-2">
+            <Clock size={12} />
+            <span>Updated: {fire.lastUpdate}</span>
+          </div>
+        )}
+      </div>
+
+      <a
+        href={fire.advUrl || 'https://www.nhc.noaa.gov/'}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        Official NHC advisory
+      </a>
+    </>
+  );
+}
+
+const WW_COLOR = {
+  'Hurricane Warning': '#FF0000', 'Hurricane Watch': '#FF00FF',
+  'Tropical Storm Warning': '#FF8C00', 'Tropical Storm Watch': '#F0E68C',
+  'Storm Surge Warning': '#C71585', 'Storm Surge Watch': '#DB7FF7',
+};
+
+function NhcWatchWarningDetail({ fire }) {
+  const color = WW_COLOR[fire.wwType] || '#94a3b8';
+  return (
+    <>
+      <div className="mb-4">
+        <div
+          className="inline-flex items-center px-2 py-0.5 mb-2 rounded-full text-xs font-semibold border"
+          style={{ backgroundColor: `${color}22`, borderColor: `${color}66`, color }}
+        >
+          {fire.wwType || 'Coastal Advisory'}
+        </div>
+        {fire.stormName && <h3 className="font-bold text-white text-lg leading-tight">{fire.stormName}</h3>}
+      </div>
+      <p className="text-sentinel-400 text-xs">
+        Coastal watch/warning breakpoint issued by the National Hurricane Center for an active tropical cyclone.
+      </p>
+      <a
+        href="https://www.nhc.noaa.gov/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 mt-4 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        NHC advisories
+      </a>
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -1354,6 +1545,9 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
              selectedFire.type === 'national-map-college'    ? 'School / University' :
+             selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
+             selectedFire.type === 'nhc-storm'               ? 'NHC Tropical Cyclone' :
+             selectedFire.type === 'nhc-watch-warning'        ? 'NHC Watch/Warning' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -1393,10 +1587,13 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
           {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
+          {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
+          {selectedFire.type === 'nhc-storm'                && <NhcStormDetail         fire={selectedFire} />}
+          {selectedFire.type === 'nhc-watch-warning'        && <NhcWatchWarningDetail  fire={selectedFire} />}
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college',
+            'gas-pipeline', 'national-map-college', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />
