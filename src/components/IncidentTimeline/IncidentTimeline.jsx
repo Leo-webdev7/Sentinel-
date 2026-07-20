@@ -10,80 +10,92 @@ import {
 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useAuth } from '../../context/AuthContext';
-import { formatRelativeTime, formatDateTime } from '../../utils/formatUtils';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Short, all-caps badge label for the update's source (e.g. "CAL FIRE"). */
+function sourceBadgeLabel(sourceName) {
+  const name = (sourceName || '').trim();
+  if (!name) return 'UPDATE';
+  if (/cal\s*fire/i.test(name)) return 'CAL FIRE';
+  return name.toUpperCase();
+}
+
+/** "Data Updated" for field-diff automated content, "Status Update" otherwise. */
+function updateTitle(update) {
+  if (update.source_type !== 'automated') return 'Field Report';
+  return update.content?.includes('→') ? 'Data Updated' : 'Status Update';
+}
+
+/** Multi-line diff content ("Acres: ...\nContainment: ...") joins with " · ". */
+function updateDescription(update) {
+  const lines = (update.content || '').split('\n').filter(Boolean);
+  return lines.length > 1 ? lines.join(' · ') : (update.content || '');
+}
+
+/** Splits a timestamp into stacked { date, time } strings for card headers. */
+function splitTimestamp(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
+  return {
+    date: d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+  };
+}
 
 // ─── Single update card ──────────────────────────────────────────────────────
 
-function UpdateCard({ update, currentUserId, onEdit, onDelete }) {
+function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
+  const badge = sourceBadgeLabel(update.source_name);
+  const { date, time } = splitTimestamp(update.created_at);
 
-  // Build a human-readable absolute timestamp matching the reference image style:
-  // "Apr 22 at 9:02 AM"
-  const absTime = (() => {
-    try {
-      const d = new Date(update.created_at);
-      return d.toLocaleString('en-US', {
-        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      });
-    } catch { return ''; }
-  })();
+  const badgeClasses = isAutomated
+    ? 'bg-red-950/60 text-red-400 border-red-800/50'
+    : 'bg-amber-950/40 text-amber-300 border-amber-800/40';
 
   return (
-    <div className="pb-5 border-b border-sentinel-800 last:border-0 last:pb-0 group">
-      {/* Header: name • role badge | edit controls */}
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="min-w-0 flex items-start gap-1.5 flex-wrap">
-          <span className="text-[12px] font-bold text-white leading-tight">
-            {update.source_name}
-          </span>
-          <span className="text-sentinel-500 text-[12px] leading-tight">•</span>
-          <span className={`text-[11px] font-medium leading-tight flex items-center gap-0.5
-            ${isAutomated ? 'text-blue-400' : 'text-amber-400'}`}>
-            {isAutomated ? 'Automated Feed' : 'Field Reporter'}
-            {!isAutomated && (
-              <svg viewBox="0 0 16 16" className="w-3 h-3 fill-amber-400 shrink-0" aria-label="Verified">
-                <path d="M8 0l1.9 2.5L13 1.5l.5 3.2L16 6.4l-1.5 2.6 1.5 2.6-2.5 1.7-.5 3.2-3.1-1-1.9 2.5L6.1 16l-1.9-2.5-3.1 1-.5-3.2L0 9.6l1.5-2.6L0 4.4l2.5-1.7.5-3.2 3.1 1z"/>
-              </svg>
-            )}
-            {isAutomated && <Bot size={10} className="shrink-0" />}
-          </span>
-        </div>
-        {isOwn && (
-          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => onEdit(update)}
-              className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
-              title="Edit update"
-            >
-              <Pencil size={10} />
-            </button>
-            <button
-              onClick={() => onDelete(update.id)}
-              className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
-              title="Delete update"
-            >
-              <Trash2 size={10} />
-            </button>
+    <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 p-3 group">
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badgeClasses}`}>
+          {isAutomated ? <Bot size={10} /> : null}
+          {badge}
+        </span>
+        <div className="flex items-start gap-1.5 shrink-0">
+          <div className="text-right">
+            <div className="text-[11px] text-sentinel-500 leading-tight">{date}</div>
+            <div className="text-[11px] text-sentinel-500 leading-tight">{time}</div>
           </div>
-        )}
+          {isOwn && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => onEdit(update)}
+                className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
+                title="Edit update"
+              >
+                <Pencil size={10} />
+              </button>
+              <button
+                onClick={() => onDelete(update.id)}
+                className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
+                title="Delete update"
+              >
+                <Trash2 size={10} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Timestamp row: relative • absolute */}
-      <div className="flex items-center gap-1 mb-2">
-        <span className="text-[10px] text-sentinel-500">{formatRelativeTime(update.created_at)}</span>
-        {absTime && (
-          <>
-            <span className="text-sentinel-700 text-[10px]">•</span>
-            <span className="text-[10px] text-sentinel-500">{absTime}</span>
-          </>
-        )}
-      </div>
-
-      {/* Content */}
-      <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-wrap">
-        {update.content}
+      <p className="text-white font-bold text-sm leading-tight mb-1">{updateTitle(update)}</p>
+      <p className="text-sentinel-300 text-xs leading-relaxed whitespace-pre-wrap">
+        {updateDescription(update)}
       </p>
+
+      {isLatest && (
+        <p className="text-sentinel-500 text-[11px] italic mt-2">Updated by: {badge}</p>
+      )}
     </div>
   );
 }
@@ -266,11 +278,27 @@ export default function IncidentTimeline({
 
   if (!incidentId) return null;
 
+  const latest = displayUpdates[0];
+  const { date: latestDate, time: latestTime } = latest
+    ? splitTimestamp(latest.created_at)
+    : { date: '', time: '' };
+
   return (
     <div className="mt-4">
       <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-3">
-        Live Updates
+        Updates
       </div>
+
+      {/* Last-updated summary, mirrors the top card below */}
+      {latest && !loading && (
+        <div className="mb-3">
+          <p className="text-white font-bold text-sm leading-tight">Last Updated</p>
+          <p className="text-fire-300 font-bold text-sm leading-tight mb-1.5">
+            {latestDate} {latestTime}
+          </p>
+          <p className="text-sentinel-300 text-sm leading-snug">{updateDescription(latest)}</p>
+        </div>
+      )}
 
       {/* Compose area (reporter portal only) */}
       {canPost && (
@@ -321,8 +349,8 @@ export default function IncidentTimeline({
 
       {/* Update feed */}
       {!loading && displayUpdates.length > 0 && (
-        <div>
-          {displayUpdates.map((u) =>
+        <div className="space-y-3">
+          {displayUpdates.map((u, i) =>
             editing?.id === u.id ? (
               <EditBox
                 key={u.id}
@@ -334,6 +362,7 @@ export default function IncidentTimeline({
               <UpdateCard
                 key={u.id}
                 update={u}
+                isLatest={i === 0}
                 currentUserId={user?.id}
                 onEdit={setEditing}
                 onDelete={handleDelete}
