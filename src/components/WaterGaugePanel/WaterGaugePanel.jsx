@@ -240,7 +240,7 @@ function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
 
 // ─── Flood Impacts Bar ─────────────────────────────────────────────────────────
 
-function FloodImpactsBar({ currentStage, thresholds, detail }) {
+function FloodImpactsBar({ currentStage, thresholds, impacts = [] }) {
   if (currentStage == null) return null;
 
   const maxScale = Math.max(
@@ -256,9 +256,6 @@ function FloodImpactsBar({ currentStage, thresholds, detail }) {
     { key: 'moderate', label: 'Moderate', color: STAGE_COLORS.moderate },
     { key: 'major',    label: 'Major',    color: STAGE_COLORS.major },
   ].filter((s) => thresholds[s.key] != null);
-
-  // Flood impact descriptions from detail API
-  const impacts = detail?.flood?.impacts ?? [];
 
   return (
     <div className="mt-4">
@@ -302,10 +299,7 @@ function FloodImpactsBar({ currentStage, thresholds, detail }) {
       <div className="space-y-3">
         {stages.map(({ key, label, color }) => {
           const val = thresholds[key];
-          const stageImpacts = impacts.filter((imp) => {
-            const cat = (imp.type ?? imp.category ?? '').toLowerCase();
-            return cat.includes(key) || cat === label.toLowerCase();
-          });
+          const stageImpacts = impacts.filter((imp) => imp.category === key);
 
           return (
             <div key={key} className="flex flex-col gap-1">
@@ -320,7 +314,7 @@ function FloodImpactsBar({ currentStage, thresholds, detail }) {
               </div>
               {stageImpacts.slice(0, 2).map((imp, i) => (
                 <p key={i} className="text-xs text-sentinel-400 leading-relaxed pl-2 border-l border-sentinel-700">
-                  {imp.statement ?? imp.description ?? imp.text}
+                  {imp.statement}
                 </p>
               ))}
             </div>
@@ -339,33 +333,30 @@ const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
 
   if (!gauge) return null;
 
-  // Merge properties from the map feature with API detail response
+  // Merge properties from the map feature with the normalised API detail.
   const props = gauge;
   const lid   = props.lid;
 
-  // Use detail data when available, fall back to map feature properties
-  const gaugeName  = detail?.name   ?? props.name   ?? lid;
-  const datum      = detail?.datum  ?? props.datum  ?? '';
-  const floodData  = detail?.flood  ?? {};
+  const num = (v) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
+
+  // Use detail data when available, fall back to map feature properties.
+  const gaugeName = detail?.name  ?? props.name  ?? lid;
+  const datum     = detail?.datum ?? props.datum ?? '';
 
   const thresholds = {
-    action:   floodData.action   != null ? Number(floodData.action)   : props.actionStage,
-    minor:    floodData.minor    != null ? Number(floodData.minor)    : props.minorStage,
-    moderate: floodData.moderate != null ? Number(floodData.moderate) : props.moderateStage,
-    major:    floodData.major    != null ? Number(floodData.major)    : props.majorStage,
+    action:   detail?.thresholds?.action   ?? num(props.actionStage),
+    minor:    detail?.thresholds?.minor    ?? num(props.minorStage),
+    moderate: detail?.thresholds?.moderate ?? num(props.moderateStage),
+    major:    detail?.thresholds?.major    ?? num(props.majorStage),
   };
 
-  const currentStage = (() => {
-    const raw = detail?.status?.observed?.primary?.value
-      ?? detail?.status?.current?.primaryStage?.value
-      ?? props.currentStage;
-    return raw != null ? Number(raw) : null;
-  })();
+  const currentStage = detail?.currentStage ?? num(props.currentStage);
 
-  const floodCategory = detail?.status?.observed?.floodCategory
-    ?? detail?.floodCategory
+  const floodCategory = detail?.floodCategory
     ?? props.floodCategory
     ?? 'no_flooding';
+
+  const impacts = detail?.impacts ?? [];
 
   const nwpsUrl = `https://water.noaa.gov/gauges/${lid}`;
 
@@ -511,7 +502,7 @@ const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
             <FloodImpactsBar
               currentStage={currentStage}
               thresholds={thresholds}
-              detail={detail}
+              impacts={impacts}
             />
 
             {/* No data at all */}
