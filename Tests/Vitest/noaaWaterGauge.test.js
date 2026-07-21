@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   gaugesToGeoJSON,
   categoryForStage,
@@ -9,9 +9,15 @@ import {
 
 // Bypass the module-level cache so every fetch test exercises the network path.
 vi.mock('../../src/utils/dataCache', () => ({
-  getCached: () => null,
-  setCached: () => {},
+  getCached: vi.fn(() => null),
+  setCached: vi.fn(),
 }));
+
+import { setCached } from '../../src/utils/dataCache';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('gaugesToGeoJSON', () => {
   it('maps NWPS gauge live water-level info into feature properties that drive the overlay', () => {
@@ -180,7 +186,7 @@ describe('categoryForStage', () => {
 describe('fetchWaterGauges', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('requests the US bounding box with srid and reads data.gauges', async () => {
+  it('reads gauges from the unfiltered list endpoint on the first attempt', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ gauges: [{ lid: 'A', latitude: 1, longitude: 2, status: { observed: { primary: 3 } } }] }),
@@ -189,17 +195,15 @@ describe('fetchWaterGauges', () => {
 
     const geo = await fetchWaterGauges();
 
+    // First attempt (unfiltered) succeeds, so no bbox request is needed.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const url = fetchMock.mock.calls[0][0];
-    expect(url).toContain('/api/nwps/gauges?');
-    expect(url).toContain('bbox.xmin=');
-    expect(url).toContain('bbox.ymax=');
-    expect(url).toContain('srid=EPSG_4326');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/nwps/gauges');
     expect(geo.features).toHaveLength(1);
     expect(geo.features[0].properties.currentStage).toBe(3);
+    expect(setCached).toHaveBeenCalled();
   });
 
-  it('falls back to the unfiltered endpoint when the bbox query returns nothing', async () => {
+  it('falls back to a US-wide bbox query when the unfiltered endpoint is empty', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) });
@@ -208,14 +212,37 @@ describe('fetchWaterGauges', () => {
     const geo = await fetchWaterGauges();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1][0]).toBe('/api/nwps/gauges');
+    const bboxUrl = fetchMock.mock.calls[1][0];
+    expect(bboxUrl).toContain('/api/nwps/gauges?');
+    expect(bboxUrl).toContain('bbox.xmin=');
+    expect(bboxUrl).toContain('srid=EPSG_4326');
     expect(geo.features).toHaveLength(1);
     expect(geo.features[0].properties.lid).toBe('B');
   });
 
-  it('throws on a non-ok primary response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
-    await expect(fetchWaterGauges()).rejects.toThrow('NWPS gauges HTTP 500');
+  it('falls through to the bbox attempt when the first request errors', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'C', latitude: 6, longitude: 7 }] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(geo.features[0].properties.lid).toBe('C');
+  });
+
+  it('throws only when every attempt errors', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    await expect(fetchWaterGauges()).rejects.toThrow('NWPS gauges HTTP 503');
+  });
+
+  it('does NOT cache an empty result (no negative caching)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ gauges: [] }) }));
+
+    const geo = await fetchWaterGauges();
+
+    expect(geo.features).toHaveLength(0);
+    expect(setCached).not.toHaveBeenCalled();
   });
 });
 

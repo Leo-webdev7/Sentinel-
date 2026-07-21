@@ -174,28 +174,48 @@ function gaugesUrl(useBbox) {
 
 /**
  * Fetch all US gauges from NWPS.
- * The list endpoint filters by bounding box; we pass an all-US box. If that
- * yields nothing we retry without params (some deployments return all gauges
- * unfiltered). Responses are cached for 5 minutes.
+ *
+ * The list endpoint's behaviour has varied between deployments — some return
+ * every gauge unfiltered, others require a bounding box. We therefore try the
+ * unfiltered request first and fall back to an all-US bbox, returning the first
+ * attempt that yields gauges and only throwing if every attempt errors.
+ *
+ * A successful, non-empty result is cached for 5 minutes. Empty results are
+ * never cached: a transient empty/failed response must not blank the map for
+ * the full TTL after the upstream API recovers.
  */
 export async function fetchWaterGauges() {
   const cacheKey = 'noaa-water-gauges-all';
   const cached = getCached(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(gaugesUrl(true), { headers: HEADERS });
-  if (!res.ok) throw new Error(`NWPS gauges HTTP ${res.status}`);
+  const attempts = [gaugesUrl(false), gaugesUrl(true)];
+  let list = [];
+  let lastError = null;
 
-  let list = extractGaugeList(await res.json());
-
-  // Fallback: if the bbox query returned nothing, try the unfiltered endpoint.
-  if (list.length === 0) {
-    const res2 = await fetch(gaugesUrl(false), { headers: HEADERS });
-    if (res2.ok) list = extractGaugeList(await res2.json());
+  for (const url of attempts) {
+    try {
+      const res = await fetch(url, { headers: HEADERS });
+      if (!res.ok) {
+        lastError = new Error(`NWPS gauges HTTP ${res.status}`);
+        continue;
+      }
+      const parsed = extractGaugeList(await res.json());
+      if (parsed.length) {
+        list = parsed;
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+    }
   }
 
+  // Surface a hard failure so the UI shows an error instead of silently
+  // pretending there are zero gauges (and re-fetches on the next interval).
+  if (list.length === 0 && lastError) throw lastError;
+
   const geoJSON = gaugesToGeoJSON(list);
-  setCached(cacheKey, geoJSON, CACHE_TTL);
+  if (geoJSON.features.length > 0) setCached(cacheKey, geoJSON, CACHE_TTL);
   return geoJSON;
 }
 
@@ -293,6 +313,7 @@ export async function fetchGaugeStageFlow(lid) {
   const [observed, forecast] = await Promise.all([load('observed'), load('forecast')]);
   const result = { observed, forecast };
 
-  setCached(cacheKey, result, CACHE_TTL);
+  // Don't negatively-cache an empty series (both sub-endpoints down).
+  if (observed.length || forecast.length) setCached(cacheKey, result, CACHE_TTL);
   return result;
 }
