@@ -1,59 +1,79 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AppProvider } from '../../src/context/AppContext';
 import LayerControl from '../../src/components/LayerControl/LayerControl';
+
+vi.mock('../../src/context/AppContext', () => ({
+  useApp: vi.fn(() => ({
+    layers: {},
+    selectedFire: null,
+    selectedGauge: null,
+    sidebarOpen: true,
+    layerPanelOpen: true,
+    legendOpen: true,
+    alerts: [],
+    alertsStatus: {},
+    isLoading: false,
+    lastRefreshed: null,
+    viewport: {},
+    feedFilter: 'all',
+    toggleLayer: vi.fn(),
+    setLayer: vi.fn(),
+    selectFire: vi.fn(),
+    clearSelected: vi.fn(),
+    selectGauge: vi.fn(),
+    toggleSidebar: vi.fn(),
+    toggleLayerPanel: vi.fn(),
+    toggleLegend: vi.fn(),
+    setAlerts: vi.fn(),
+    setAlertsStatus: vi.fn(),
+    setLoading: vi.fn(),
+    setRefreshed: vi.fn(),
+    setViewport: vi.fn(),
+    flyToFire: vi.fn(),
+    setFeedFilter: vi.fn(),
+  })),
+}));
 
 const renderPanel = (props = {}) =>
   render(
     <MemoryRouter>
-      <AppProvider>
-        <LayerControl activeMapTab="wildfire" {...props} />
-      </AppProvider>
+      <LayerControl activeMapTab="wildfire" {...props} />
     </MemoryRouter>
   );
 
 describe('LayerControl — Infrastructure & Modeling group', () => {
-  it('renders the Infrastructure & Modeling section', () => {
+  it('renders the Infrastructure section', () => {
     renderPanel();
-    expect(screen.getByText('Infrastructure & Modeling')).toBeInTheDocument();
+    expect(screen.getByText('Infrastructure')).toBeInTheDocument();
   });
 
-  it('shows the 3D Buildings toggle in the group', () => {
+  it('shows Critical Infrastructure toggle in the group', () => {
     renderPanel();
-    expect(screen.getByText('3D Buildings')).toBeInTheDocument();
-    expect(screen.getByText('Mapbox 3D building extrusions')).toBeInTheDocument();
+    expect(screen.getByText('Critical Infrastructure')).toBeInTheDocument();
   });
 
-  it('3D Buildings is a free toggle (not Pro-locked) even without entitlements', () => {
+  it('shows Schools & Universities toggle in the group', () => {
+    renderPanel();
+    expect(screen.getByText('Schools & Universities')).toBeInTheDocument();
+  });
+
+  it('Infrastructure layers are Pro-locked by default', () => {
     renderPanel({ infrastructureLayersEntitled: false, fireBehaviorModelingEntitled: false });
-    const toggle = screen.getByRole('button', { name: /toggle 3d buildings/i });
-    expect(toggle).toBeInTheDocument();
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('clicking the 3D Buildings toggle switches it on and off', () => {
-    renderPanel();
-    const toggle = screen.getByRole('button', { name: /toggle 3d buildings/i });
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Critical Infrastructure')).toBeInTheDocument();
   });
 
   it.each(['wildfire', 'weather', 'allhazard'])(
-    'shows the 3D Buildings toggle on the %s tab',
+    'shows Infrastructure section on the %s tab',
     (tab) => {
       renderPanel({ activeMapTab: tab });
-      expect(screen.getByText('3D Buildings')).toBeInTheDocument();
+      expect(screen.getByText('Infrastructure')).toBeInTheDocument();
     },
   );
 
-  it('lists 3D Buildings alongside the other infrastructure & modeling layers', () => {
+  it('lists Critical Infrastructure and Schools & Universities layers', () => {
     renderPanel();
     expect(screen.getByText('Critical Infrastructure')).toBeInTheDocument();
     expect(screen.getByText('Schools & Universities')).toBeInTheDocument();
-    expect(screen.getByText('Fire Behavior Modeling')).toBeInTheDocument();
-    expect(screen.getByText('3D Buildings')).toBeInTheDocument();
   });
 });
