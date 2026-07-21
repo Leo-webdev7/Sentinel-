@@ -7,8 +7,7 @@
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -32,14 +31,9 @@ import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
-import { useNhcWatchesWarnings } from '../hooks/useNhcWatchesWarnings';
-import { filterByInvestStatus } from '../api/nhcStorms';
-import { matchInvestsToOutlookAreas } from '../api/nhcInvests';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
-import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
-import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 
@@ -75,7 +69,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesFire18: false,
   spcWeatherOutlooks: false,
   radar: false,
-  reporterEvacZones: true,
+  evacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -84,7 +78,6 @@ const WILDFIRE_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
-  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -98,7 +91,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   goesWest: false,
   spcWeatherOutlooks: false,
   radar: true,
-  reporterEvacZones: true,
+  evacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -107,7 +100,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
-  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -127,13 +119,12 @@ const WEATHER_LAYER_PRESET = {
   stormReports: false,
   radar: true,
   criticalInfrastructure: false,
-  reporterEvacZones: false,
+  evacZones: false,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
-  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -209,11 +200,9 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, alerts, selectFire, flyToFire, selectedFire } = useApp();
-  const [searchParams] = useSearchParams();
-  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge } = useApp();
+  const { hasProInfrastructureAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
-  const fireBehaviorModelingEntitled = hasFireBehaviorModelingAccess;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
@@ -247,12 +236,6 @@ export default function LiveTrackerPage() {
       setLayer('schoolsUniversities', false);
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
-
-  useEffect(() => {
-    if (!fireBehaviorModelingEntitled && layers.fireBehaviorModeling) {
-      setLayer('fireBehaviorModeling', false);
-    }
-  }, [fireBehaviorModelingEntitled, layers.fireBehaviorModeling, setLayer]);
 
   // Weather tab: dark streets map; all-hazard and wildfire tabs use satellite.
   useEffect(() => {
@@ -302,7 +285,7 @@ export default function LiveTrackerPage() {
     perimetersCount,
     dotsCount,
     refresh: refreshPerimeters,
-  } = useMergedFireData(0, wildfireDataEnabled, true);
+  } = useMergedFireData(5, wildfireDataEnabled, true);
 
   const {
     incidents: calFireIncidents,
@@ -379,7 +362,7 @@ export default function LiveTrackerPage() {
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
-    geoJSON: evacZonesGeoJSON,
+    geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
   } = useCombinedEvacZones();
 
@@ -392,6 +375,15 @@ export default function LiveTrackerPage() {
     () => reporterEvacZonesToGeoJSON(reporterEvacZoneRows),
     [reporterEvacZoneRows]
   );
+
+  // Single combined evacuation-zones layer: official feeds + reporter-drawn boundaries
+  const evacZonesGeoJSON = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: [
+      ...(officialEvacZonesGeoJSON?.features || []),
+      ...(reporterEvacZonesGeoJSON?.features || []),
+    ],
+  }), [officialEvacZonesGeoJSON, reporterEvacZonesGeoJSON]);
 
 const flightBounds = useMemo(() => {
   if (!viewport) return null;
@@ -499,58 +491,10 @@ const flightBounds = useMemo(() => {
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
 
-  const {
-    geoJSON: nhcWatchesWarningsGeoJSON,
-    refresh: refreshNhcWatchesWarnings,
-  } = useNhcWatchesWarnings(nhcTropicalWeatherEnabled);
-
-  // CurrentStorms.json returns Invests (pre-genesis systems) and designated
-  // cyclones in one list; split them so Invests render as their own "X"
-  // marker instead of the generic storm dot. A system moves from one bucket
-  // to the other automatically the moment NHC upgrades its classification.
-  const nhcCycloneCentersGeoJSON = useMemo(
-    () => filterByInvestStatus(nhcCentersGeoJSON, false),
-    [nhcCentersGeoJSON]
-  );
-  const nhcInvestCentersGeoJSON = useMemo(
-    () => filterByInvestStatus(nhcCentersGeoJSON, true),
-    [nhcCentersGeoJSON]
-  );
-  const nhcInvestsGeoJSON = useMemo(
-    () => matchInvestsToOutlookAreas(nhcInvestCentersGeoJSON, nhcDisturbanceGeoJSON),
-    [nhcInvestCentersGeoJSON, nhcDisturbanceGeoJSON]
-  );
-
-  // Plain-object lists for the sidebar Tropical Weather feed (map markers use
-  // the GeoJSON versions above; the sidebar list wants simple JS objects).
-  const nhcInvestsList = useMemo(
-    () => (nhcInvestsGeoJSON.features || []).map((f) => ({
-      id: f.properties.id,
-      lng: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-      ...f.properties,
-    })),
-    [nhcInvestsGeoJSON]
-  );
-  const nhcCyclonesList = useMemo(
-    () => (nhcCycloneCentersGeoJSON?.features || []).map((f) => ({
-      id: f.properties.id,
-      lng: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-      ...f.properties,
-    })),
-    [nhcCycloneCentersGeoJSON]
-  );
-
   // NOAA NWPS water gauges
   const {
     geoJSON: waterGaugesGeoJSON,
   } = useWaterGauges(layers.waterGauges);
-
-  // CAL FIRE FRAP historical fire perimeters
-  const {
-    geoJSON: calFireHistoricalPerimetersGeoJSON,
-  } = useCalFirePerimeters(layers.calFireHistoricalPerimeters);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -586,17 +530,6 @@ const flightBounds = useMemo(() => {
   const freshIncidentDotsGeoJSON = useMemo(
     () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
     [incidentDotsGeoJSON]
-  );
-
-  const fireBehaviorModelingEnabled = Boolean(layers.fireBehaviorModeling && fireBehaviorModelingEntitled);
-  const selectedFireIdForModeling = (selectedFire?.type === 'perimeter' || selectedFire?.type === 'incident')
-    ? selectedFire.id
-    : null;
-  const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
-    fireBehaviorModelingEnabled,
-    freshPerimetersGeoJSON,
-    freshIncidentDotsGeoJSON,
-    selectedFireIdForModeling
   );
 
   // ── Apply feed filter to map fire layers ──
@@ -717,36 +650,6 @@ const flightBounds = useMemo(() => {
       };
     });
   }, [allIncidents, reporterReports]);
-
-  // ── Deep-link handling ──
-  // A shared incident/alert link carries `?incident=<id>` or `?alert=<id>`.
-  // Once the matching data has loaded, auto-select it so the recipient lands
-  // directly on the fire/alert instead of just the bare map.
-  const deepLinkHandledRef = useRef(false);
-  useEffect(() => {
-    if (deepLinkHandledRef.current) return;
-
-    const incidentId = searchParams.get('incident');
-    const alertId = searchParams.get('alert');
-    if (!incidentId && !alertId) return;
-
-    if (incidentId) {
-      if (incidentsLoading || calFireLoading) return; // wait for incident data to load
-      const match = mergedIncidents.find(inc => String(inc.id) === incidentId);
-      if (match) {
-        selectFire({ type: 'incident', ...match });
-        flyToFire(match);
-      }
-      deepLinkHandledRef.current = true;
-    } else if (alertId) {
-      if (alertsLoading) return; // wait for alert data to load
-      const match = alerts.find(a => String(a.id) === alertId);
-      if (match) {
-        selectFire({ ...match, type: 'weather-alert', eventType: match.type });
-      }
-      deepLinkHandledRef.current = true;
-    }
-  }, [searchParams, mergedIncidents, incidentsLoading, calFireLoading, alerts, alertsLoading, selectFire, flyToFire]);
 
   // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
   const reporterMatchKeys = useMemo(() => {
@@ -870,7 +773,6 @@ const flightBounds = useMemo(() => {
     if (nhcTropicalWeatherEnabled) {
       refreshNhcStorms();
       refreshNhcTropicalWeather();
-      refreshNhcWatchesWarnings();
     }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
@@ -880,7 +782,6 @@ const flightBounds = useMemo(() => {
     refreshNationalMapColleges,
     refreshNhcStorms,
     refreshNhcTropicalWeather,
-    refreshNhcWatchesWarnings,
     activeMapTab, weatherDataEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     nhcTropicalWeatherEnabled,
@@ -911,8 +812,6 @@ const flightBounds = useMemo(() => {
           weatherAlertFilter={weatherAlertFilter}
           onWeatherAlertFilterChange={setWeatherAlertFilter}
           onWeatherAlertsRefresh={refreshAlerts}
-          nhcInvests={nhcInvestsList}
-          nhcCyclones={nhcCyclonesList}
         />
 
         {/* Map area */}
@@ -937,7 +836,6 @@ const flightBounds = useMemo(() => {
             spcMdGeoJSON={spcMdGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
-            reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
@@ -948,9 +846,7 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
-            fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
-            fireBehaviorModelingVisible={fireBehaviorModelingEnabled}
-            nhcCentersGeoJSON={nhcCycloneCentersGeoJSON}
+            nhcCentersGeoJSON={nhcCentersGeoJSON}
             nhcConesGeoJSON={nhcConesGeoJSON}
             nhcTracksGeoJSON={nhcTracksGeoJSON}
             nhcTrackGeoJSON={nhcTrackGeoJSON}
@@ -958,8 +854,6 @@ const flightBounds = useMemo(() => {
             nhcConeGeoJSON={nhcConeGeoJSON}
             nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
             nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
-            nhcInvestsGeoJSON={nhcInvestsGeoJSON}
-            nhcWatchesWarningsGeoJSON={nhcWatchesWarningsGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
@@ -976,13 +870,11 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
-            calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
           <LayerControl
             activeMapTab={activeMapTab}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
-            fireBehaviorModelingEntitled={fireBehaviorModelingEntitled}
             mapType={mapType}
             onMapTypeChange={setMapType}
             measureActive={measureActive}
@@ -1007,15 +899,15 @@ const flightBounds = useMemo(() => {
             />
           )}
 
-          {/* Bug report button – tiny, pinned to the very bottom-right corner of map area */}
+          {/* Bug report button – fixed to bottom-right of map area */}
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header"
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute bottom-0 right-0 z-20 flex items-center gap-1 px-1.5 py-0.5 rounded-tl text-[10px] leading-none font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow backdrop-blur-sm transition-colors"
+            className="bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
             title="Report a bug"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 2h8l1 4H7L8 2z"/>
               <path d="M12 6v4"/>
               <circle cx="12" cy="14" r="6"/>
@@ -1024,7 +916,7 @@ const flightBounds = useMemo(() => {
               <path d="M6.34 17.66l-2.83 2.83M20.49 3.51l-2.83 2.83"/>
               <path d="M17.66 17.66l2.83 2.83M3.51 3.51l2.83 2.83"/>
             </svg>
-            Bug
+            Report Bug
           </a>
         </div>
       </div>

@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup, Marker, Source } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -27,8 +27,7 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
-import EvacZonesLayer from './layers/EvacZonesLayer';
-import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
+import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
 import SPCWeatherTabOutlookControls from './SPCWeatherTabOutlookControls';
@@ -42,14 +41,9 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
-import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
-import NhcInvestsLayer from './layers/NhcInvestsLayer';
-import NhcWatchesWarningsLayer from './layers/NhcWatchesWarningsLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
-import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
-import Buildings3DLayer from './layers/Buildings3DLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -68,28 +62,19 @@ function ndgdFeatureToDateMs(feature) {
 }
 
 // ─── Base map styles ──────────────────────────────────────────────────────────
-// Satellite uses Mapbox Standard Satellite – Mapbox's 3D style with dynamic
-// lighting, 3D landmarks/buildings, and satellite imagery as the base layer.
 const MAP_STYLES = {
   satellite: HAS_MAPBOX_TOKEN
-    ? 'mapbox://styles/mapbox/standard-satellite'
+    ? 'mapbox://styles/mapbox/satellite-streets-v12'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   rendered: HAS_MAPBOX_TOKEN
     ? 'mapbox://styles/mapbox/dark-v11'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
 };
 
-// 3D terrain (satellite view only). With terrain enabled, Mapbox GL drapes
-// fill/line/raster overlays over the elevation surface and positions
-// circle/symbol layers and markers at the terrain's elevation, so every data
-// overlay conforms to the differing elevations. Exaggeration 1.0 keeps
-// elevations true-to-scale (important for an emergency-tracking map).
-const TERRAIN_CONFIG = { source: 'mapbox-dem', exaggeration: 1.0 };
-
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-invest-circle', 'nhc-ww-line']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -328,7 +313,40 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'evac-zones-fill': {
+      const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
+
+      if (isReporter) {
+        const zoneTypeColors = {
+          'evacuation order':   'text-red-400',
+          'evacuation warning': 'text-orange-400',
+          'evacuation watch':   'text-yellow-400',
+        };
+        const ztKey = (p.zone_type || '').toLowerCase();
+        const ztClass = zoneTypeColors[ztKey] || 'text-red-400';
+        content = (
+          <>
+            <div className={`font-semibold ${ztClass}`}>{p.zone_type || 'Evacuation Zone'}</div>
+            {p.title && <div className="text-white text-xs mt-0.5 font-medium">{p.title}</div>}
+            {p.incident_name && (
+              <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
+            )}
+            {(p.county || p.state) && (
+              <div className="text-gray-300 text-xs">
+                {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
+              </div>
+            )}
+            {p.effective_at && (
+              <div className="text-gray-400 text-xs">
+                Effective: {new Date(p.effective_at).toLocaleString()}
+              </div>
+            )}
+            <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
+          </>
+        );
+        break;
+      }
+
       if (isIpaws) {
         content = (
           <>
@@ -365,36 +383,6 @@ function HoverTooltip({ feature, lngLat }) {
           {p.instructions && (
             <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
           )}
-        </>
-      );
-      break;
-    }
-    case 'reporter-evac-zones-fill': {
-      const zoneTypeColors = {
-        'evacuation order':   'text-red-400',
-        'evacuation warning': 'text-orange-400',
-        'evacuation watch':   'text-yellow-400',
-      };
-      const ztKey = (p.zone_type || '').toLowerCase();
-      const ztClass = zoneTypeColors[ztKey] || 'text-red-400';
-      content = (
-        <>
-          <div className={`font-semibold ${ztClass}`}>{p.zone_type || 'Evacuation Zone'}</div>
-          {p.title && <div className="text-white text-xs mt-0.5 font-medium">{p.title}</div>}
-          {p.incident_name && (
-            <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
-          )}
-          {(p.county || p.state) && (
-            <div className="text-gray-300 text-xs">
-              {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
-            </div>
-          )}
-          {p.effective_at && (
-            <div className="text-gray-400 text-xs">
-              Effective: {new Date(p.effective_at).toLocaleString()}
-            </div>
-          )}
-          <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
         </>
       );
       break;
@@ -608,46 +596,6 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'nhc-invest-circle': {
-      const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
-      const chanceClass  = chanceColors[p.formationChance] || 'text-zinc-400';
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">
-            Invest {p.investId || p.name}
-          </div>
-          {p.formationChance && (
-            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
-              {p.formationChance} formation chance
-              {(p.day2Percent != null || p.day7Percent != null) && ' · '}
-              {p.day2Percent != null && `2-day: ${p.day2Percent}%`}
-              {p.day2Percent != null && p.day7Percent != null && ' · '}
-              {p.day7Percent != null && `7-day: ${p.day7Percent}%`}
-            </div>
-          )}
-          {p.movement && (
-            <div className="text-gray-400 text-xs mt-0.5">Movement: {p.movement}</div>
-          )}
-          <div className="text-sky-500 text-[10px] mt-0.5 uppercase tracking-wide">NHC Tropical Weather Outlook</div>
-        </>
-      );
-      break;
-    }
-    case 'nhc-ww-line': {
-      const wwColors = {
-        'Hurricane Warning': 'text-red-400', 'Hurricane Watch': 'text-fuchsia-400',
-        'Tropical Storm Warning': 'text-orange-400', 'Tropical Storm Watch': 'text-yellow-200',
-        'Storm Surge Warning': 'text-pink-400', 'Storm Surge Watch': 'text-purple-300',
-      };
-      content = (
-        <>
-          <div className={`font-semibold ${wwColors[p.wwType] || 'text-zinc-300'}`}>{p.wwType || 'Coastal Advisory'}</div>
-          {p.stormName && <div className="text-zinc-300 text-xs mt-0.5">{p.stormName}</div>}
-          <div className="text-zinc-500 text-[10px] mt-0.5">NHC coastal watch/warning</div>
-        </>
-      );
-      break;
-    }
     case 'nhc-centers-circle': {
       const windMph  = p.intensityMph ? `${p.intensityMph} mph` : null;
       const windKts  = p.intensityKts ? `${p.intensityKts} kt`  : null;
@@ -712,37 +660,6 @@ function HoverTooltip({ feature, lngLat }) {
             <div className={`text-xs font-medium ${catClass}`}>{catLabel}</div>
           </div>
           <div className="text-gray-500 text-[10px] mt-1">Click for details · NOAA NWPS</div>
-        </>
-      );
-      break;
-    }
-    case 'fire-behavior-modeling-fill': {
-      content = (
-        <>
-          <div className="font-semibold text-orange-300">{p.incidentName}</div>
-          <div className="text-white text-xs mt-0.5 font-medium">
-            +{p.horizonHours}h projected spread
-          </div>
-          <div className="text-gray-300 text-xs mt-1">
-            Est. rate of spread: <span className="text-white font-medium">{p.rosHeadChPerHr} ch/hr</span>
-          </div>
-          <div className="text-gray-300 text-xs">
-            Est. flame length: <span className="text-white font-medium">{p.flameLengthFt} ft</span>
-          </div>
-          {p.windSpeedMph != null && (
-            <div className="text-gray-300 text-xs">
-              Wind: <span className="text-white font-medium">{p.windSpeedMph} mph{p.windDirDeg != null ? ` @ ${p.windDirDeg}°` : ''}</span>
-              {' · '}Fuel moisture: <span className="text-white font-medium">{p.fuelMoisturePct}%</span>
-            </div>
-          )}
-          {p.stationName && (
-            <div className="text-gray-500 text-[10px] mt-1">
-              {p.stationName} RAWS · {p.stationDistanceMi} mi away
-            </div>
-          )}
-          <div className="text-gray-500 text-[10px] mt-1 uppercase tracking-wide">
-            Estimated — situational awareness only, not an official forecast
-          </div>
         </>
       );
       break;
@@ -858,8 +775,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
- * @param {object|null} props.evacZonesGeoJSON
- * @param {object|null} props.reporterEvacZonesGeoJSON
+ * @param {object|null} props.evacZonesGeoJSON - combined official (Cal OES/IPAWS) + reporter-drawn zones
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
@@ -870,13 +786,9 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
- * @param {object|null} props.fireBehaviorModelingGeoJSON
- * @param {boolean}     [props.fireBehaviorModelingVisible]
  * @param {object|null} props.nhcCentersGeoJSON
  * @param {object|null} props.nhcConesGeoJSON
  * @param {object|null} props.nhcTracksGeoJSON
- * @param {object|null} props.nhcInvestsGeoJSON
- * @param {object|null} props.nhcWatchesWarningsGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -909,7 +821,6 @@ export default function MapView({
   spcMdGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
-  reporterEvacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
@@ -920,8 +831,6 @@ export default function MapView({
   criticalInfrastructureVisible = false,
   nationalMapCollegesGeoJSON,
   nationalMapCollegesVisible = false,
-  fireBehaviorModelingGeoJSON,
-  fireBehaviorModelingVisible = false,
   nhcCentersGeoJSON,
   nhcConesGeoJSON,
   nhcTracksGeoJSON,
@@ -939,8 +848,6 @@ export default function MapView({
   nhcConeGeoJSON,
   nhcDisturbanceGeoJSON,
   nhcStormLabelsGeoJSON,
-  nhcInvestsGeoJSON,
-  nhcWatchesWarningsGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -948,7 +855,6 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
   waterGaugesGeoJSON,
-  calFireHistoricalPerimetersGeoJSON,
 }) {
   const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
@@ -1103,8 +1009,7 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
-    if ((isWildfireTab || isAllHazardTab) && evacZonesGeoJSON)                                            ids.push('evac-zones-fill');
-    if ((isWildfireTab || isAllHazardTab) && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
+    if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
@@ -1121,9 +1026,6 @@ export default function MapView({
     if (nationalMapCollegesVisible && nationalMapCollegesGeoJSON?.features?.length) {
       ids.push('national-map-colleges-circle');
     }
-    if (fireBehaviorModelingVisible && fireBehaviorModelingGeoJSON?.features?.length) {
-      ids.push('fire-behavior-modeling-fill');
-    }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
@@ -1135,22 +1037,19 @@ export default function MapView({
       if (nhcDisturbanceGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
-      if (nhcInvestsGeoJSON?.features?.length) ids.push('nhc-invest-circle');
-      if (nhcWatchesWarningsGeoJSON?.features?.length) ids.push('nhc-ww-line');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.reporterEvacZones, spcMdGeoJSON,
+      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
+      stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON, nhcInvestsGeoJSON, nhcWatchesWarningsGeoJSON,
+      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
-      fireBehaviorModelingVisible, fireBehaviorModelingGeoJSON,
       nhcCentersGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON]);
 
@@ -1357,6 +1256,23 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
+    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
+      selectFire({
+        type:          'reporter-evacuation-zone',
+        id:            p.id || null,
+        name:          p.title || 'Reporter Evacuation Zone',
+        title:         p.title,
+        zone_type:     p.zone_type,
+        incident_name: p.incident_name,
+        description:   p.description,
+        county:        p.county,
+        state:         p.state,
+        effective_at:  p.effective_at,
+        expires_at:    p.expires_at,
+        source:        'reporter',
+        lat:           evt.lngLat.lat,
+        lng:           evt.lngLat.lng,
+      });
     } else if (feature.layer.id === 'evac-zones-fill') {
       const isIpaws = p.source === 'ipaws';
       selectFire({
@@ -1388,23 +1304,6 @@ export default function MapView({
           ipawsAreaDesc: p.ipawsAreaDesc,
         }),
       });
-    } else if (feature.layer.id === 'reporter-evac-zones-fill') {
-      selectFire({
-        type:          'reporter-evacuation-zone',
-        id:            p.id || null,
-        name:          p.title || 'Reporter Evacuation Zone',
-        title:         p.title,
-        zone_type:     p.zone_type,
-        incident_name: p.incident_name,
-        description:   p.description,
-        county:        p.county,
-        state:         p.state,
-        effective_at:  p.effective_at,
-        expires_at:    p.expires_at,
-        source:        'reporter',
-        lat:           evt.lngLat.lat,
-        lng:           evt.lngLat.lng,
-      });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
         type:    'aqi',
@@ -1433,50 +1332,6 @@ export default function MapView({
           expires:   p.expires,
         });
       }
-    } else if (feature.layer.id === 'nhc-invest-circle') {
-      selectFire({
-        type:            'nhc-invest',
-        id:              p.id,
-        name:            p.name,
-        investId:        p.investId,
-        lat:             evt.lngLat.lat,
-        lng:             evt.lngLat.lng,
-        movement:        p.movement,
-        pressure:        p.pressure,
-        intensityMph:    p.intensityMph,
-        formationChance: p.formationChance,
-        day2Percent:     p.day2Percent,
-        day7Percent:     p.day7Percent,
-        outlookText:     p.outlookText,
-        lastUpdate:      p.lastUpdate,
-      });
-    } else if (feature.layer.id === 'nhc-centers-circle') {
-      selectFire({
-        type:         'nhc-storm',
-        id:           p.id,
-        name:         p.name,
-        classification: p.classification,
-        category:     p.category,
-        lat:          evt.lngLat.lat,
-        lng:          evt.lngLat.lng,
-        movement:     p.movement,
-        pressure:     p.pressure,
-        intensityMph: p.intensityMph,
-        intensityKts: p.intensityKts,
-        advNum:       p.advNum,
-        advUrl:       p.advUrl,
-        lastUpdate:   p.lastUpdate,
-      });
-    } else if (feature.layer.id === 'nhc-ww-line') {
-      selectFire({
-        type:      'nhc-watch-warning',
-        id:        p.id,
-        name:      p.wwType || 'Coastal Advisory',
-        wwType:    p.wwType,
-        stormName: p.stormName,
-        lat:       evt.lngLat.lat,
-        lng:       evt.lngLat.lng,
-      });
     } else if (feature.layer.id === 'spc-md-fill') {
       // Open the SPC MD page in a new tab when the user clicks a polygon
       if (p.url) {
@@ -1535,9 +1390,6 @@ export default function MapView({
   const handleMove = useCallback((evt) => {
     setViewport(evt.viewState);
   }, [setViewport]);
-
-  // 3D terrain is only available with a Mapbox token on the satellite (3D) style
-  const is3DSatellite = mapType === 'satellite' && HAS_MAPBOX_TOKEN;
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
@@ -1598,37 +1450,14 @@ export default function MapView({
         maxTileCacheSize={150}
         fadeDuration={150}
         projection="mercator"
-        maxPitch={85}
-        terrain={is3DSatellite ? TERRAIN_CONFIG : undefined}
       >
-        {/* Elevation (DEM) source powering 3D terrain on the satellite view.
-            All overlay layers below are draped over / elevated to this surface. */}
-        {is3DSatellite && (
-          <Source
-            id="mapbox-dem"
-            type="raster-dem"
-            url="mapbox://mapbox.mapbox-terrain-dem-v1"
-            tileSize={512}
-            maxzoom={14}
-          />
-        )}
-
         {/* Navigation controls */}
-        <NavigationControl
-          position="bottom-right"
-          style={{ marginBottom: '6rem' }}
-          visualizePitch
-        />
+        <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
-        {/* Mapbox 3D buildings – rendered first so data overlays stay on top */}
-        <Buildings3DLayer
-          visible={layers.buildings3d}
-          mapType={mapType}
-          hasMapboxToken={HAS_MAPBOX_TOKEN}
-        />
+
 
         {/* GOES satellite imagery – visible/weather bands on weather tab;
             ABI-L2-MCMIP Day Land Cloud Fire RGB on wildfire tab */}
@@ -1660,22 +1489,16 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
         />
 
-        {/* NHC Invests – pre-genesis systems (90L, 91L, …), distinct "X" marker */}
-        <NhcInvestsLayer
-          investsGeoJSON={nhcInvestsGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
-        />
-
-        {/* NHC coastal watches / warnings for active cyclones */}
-        <NhcWatchesWarningsLayer
-          geoJSON={nhcWatchesWarningsGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
-        />
-
         {/* SPC convective outlook polygons */}
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective'}
+        />
+
+        {/* Fire perimeter polygons */}
+        <FirePerimetersLayer
+          geoJSON={perimetersGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
         />
 
         {/* WFIGS incident location markers */}
@@ -1703,29 +1526,10 @@ export default function MapView({
           opacity={0.9}
         />
 
-        {/* California evacuation zones (official Cal OES feed) — permanent layer, not user-toggleable */}
-        <EvacZonesLayer
+        {/* Evacuation zones — official Cal OES/IPAWS feeds + reporter-drawn boundaries, combined */}
+        <EvacuationZonesLayer
           geoJSON={evacZonesGeoJSON}
-          visible={isWildfireTab || isAllHazardTab}
-        />
-
-        {/* Reporter-drawn evacuation zones */}
-        <ReporterEvacZonesLayer
-          geoJSON={reporterEvacZonesGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.reporterEvacZones}
-        />
-
-        {/* Fire perimeter polygons — rendered above evac zones so the active
-            fire boundary stays visible through the zone hatch overlay */}
-        <FirePerimetersLayer
-          geoJSON={perimetersGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
-        />
-
-        {/* CAL FIRE FRAP historical fire perimeter scars */}
-        <CalFirePerimetersLayer
-          geoJSON={calFireHistoricalPerimetersGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
+          visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
         />
 
         <CriticalInfrastructureLayer
@@ -1737,11 +1541,6 @@ export default function MapView({
         <NationalMapCollegesLayer
           geoJSON={nationalMapCollegesGeoJSON}
           visible={nationalMapCollegesVisible}
-        />
-
-        <FireBehaviorModelingLayer
-          geoJSON={fireBehaviorModelingGeoJSON}
-          visible={fireBehaviorModelingVisible}
         />
 
         {/* RAWS weather stations – visible on both wildfire and weather tabs */}
