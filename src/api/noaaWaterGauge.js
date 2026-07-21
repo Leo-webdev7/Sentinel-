@@ -19,7 +19,7 @@ const BASE = '/api/nwps';
 const HEADERS = { Accept: 'application/json' };
 
 /** Convert the NWPS gauge list response into a GeoJSON FeatureCollection. */
-function gaugesToGeoJSON(gauges) {
+export function gaugesToGeoJSON(gauges) {
   const features = [];
   for (const g of gauges) {
     // Handle coordinates from direct properties or nested geometry
