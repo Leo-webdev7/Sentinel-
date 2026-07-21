@@ -6,9 +6,14 @@
  * re-exposes the endpoints with explicit CORS headers.
  *
  * Routes (after stripping /api/nwps prefix):
- *   /gauges                          → GET /gauges (full gauge list)
- *   /gauges/<lid>                    → GET /gauges/{lid} (single gauge detail)
- *   /gauges/<lid>/stageflow          → GET /gauges/{lid}/stageflow
+ *   /gauges                             → GET /gauges (bbox-filtered gauge list)
+ *   /gauges/<lid>                       → GET /gauges/{lid} (single gauge detail)
+ *   /gauges/<lid>/stageflow             → GET /gauges/{lid}/stageflow
+ *   /gauges/<lid>/stageflow/observed    → observed time-series
+ *   /gauges/<lid>/stageflow/forecast    → forecast time-series
+ *
+ * The incoming query string (e.g. ?bbox.xmin=…&srid=EPSG_4326) is forwarded
+ * verbatim to the upstream API.
  */
 
 const CORS = {
@@ -24,8 +29,9 @@ const NWPS_HEADERS = {
   'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
 };
 
-// Only allow safe NWPS sub-paths: /gauges, /gauges/<lid>, /gauges/<lid>/stageflow
-const ALLOWED = /^\/gauges(\/[A-Za-z0-9_-]+(\/stageflow)?)?$/;
+// Only allow safe NWPS sub-paths:
+//   /gauges, /gauges/<lid>, /gauges/<lid>/stageflow[/observed|/forecast]
+const ALLOWED = /^\/gauges(\/[A-Za-z0-9_-]+(\/stageflow(\/(observed|forecast))?)?)?$/;
 
 export default async (request) => {
   if (request.method === 'OPTIONS') {
@@ -42,7 +48,8 @@ export default async (request) => {
     });
   }
 
-  const target = `${NWPS_BASE}${sub}`;
+  // Forward the query string (bbox/srid params) verbatim to the upstream API.
+  const target = `${NWPS_BASE}${sub}${url.search}`;
 
   try {
     const resp = await fetch(target, { headers: NWPS_HEADERS });
