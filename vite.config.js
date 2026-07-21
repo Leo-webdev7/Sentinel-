@@ -123,6 +123,11 @@ export default defineConfig({
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,
         secure: true,
+        headers: {
+          Accept: 'application/json',
+          // api.water.noaa.gov returns 403 to requests without a User-Agent.
+          'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
+        },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
     },
@@ -192,6 +197,11 @@ export default defineConfig({
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,
         secure: true,
+        headers: {
+          Accept: 'application/json',
+          // api.water.noaa.gov returns 403 to requests without a User-Agent.
+          'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
+        },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
     },
