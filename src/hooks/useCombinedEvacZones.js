@@ -50,7 +50,7 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 /**
  * Map a Zone_Status value from the PROD service to the canonical warningType
- * strings used by EvacZonesLayer's Mapbox color expressions.
+ * strings used by EvacuationZonesLayer's Mapbox color expressions.
  */
 function prodStatusToWarningType(status) {
   if (!status) return 'Evacuation Warning';

@@ -1,11 +1,11 @@
 /**
- * Maps IPAWS CAP alert payloads (from the poller JSON) into EvacZonesLayer GeoJSON
- * features with the shared evac schema plus IPAWS-specific properties.
+ * Maps IPAWS CAP alert payloads (from the poller JSON) into EvacuationZonesLayer
+ * GeoJSON features with the shared evac schema plus IPAWS-specific properties.
  */
 
 /**
  * Classify a CAP alert's event type and headline into a canonical warning type
- * for use with EvacZonesLayer's color-match expression.
+ * for use with EvacuationZonesLayer's color-match expression.
  * @param {string|null} event - CAP event type (e.g. "Evacuation Order")
  * @param {string|null} headline - CAP headline text
  * @returns {'Evacuation Order'|'Evacuation Warning'|'Evacuation Watch'}

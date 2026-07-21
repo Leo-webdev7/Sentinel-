@@ -12,8 +12,6 @@ const initialState = {
   layers: {
     fireHotspots:      false,
     firePerimeters:    false,
-    /** CAL FIRE FRAP historical fire perimeter scars */
-    calFireHistoricalPerimeters: false,
     incidentLocations: false,
     aqi:               false,
     weatherAlerts:     false,
@@ -26,7 +24,7 @@ const initialState = {
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     radar:             false,
-    reporterEvacZones: false,
+    evacZones:         false,
     flights:           false,
     rawsStations:          false,
     airNowMonitors:        false,
@@ -35,14 +33,10 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
-    /** Fire spread projection rings (+1h/+3h/+6h); free & public */
-    fireBehaviorModeling: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
-    /** Mapbox 3D buildings (Standard 3D objects / fill-extrusions) */
-    buildings3d: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
