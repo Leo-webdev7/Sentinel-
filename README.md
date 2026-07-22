@@ -27,7 +27,7 @@ npm install
 cp .env.example .env
 
 # 3. Start dev server
-npm run dev
+npm run dev:all
 ```
 
 Open http://localhost:3000
