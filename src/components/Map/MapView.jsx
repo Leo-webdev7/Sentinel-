@@ -44,6 +44,7 @@ import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
+import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -855,6 +856,7 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
   waterGaugesGeoJSON,
+  calFireHistoricalPerimetersGeoJSON,
 }) {
   const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
@@ -1600,6 +1602,12 @@ export default function MapView({
         <WaterGaugesLayer
           geoJSON={waterGaugesGeoJSON}
           visible={layers.waterGauges}
+        />
+
+        {/* CAL FIRE FRAP historical fire perimeter scars */}
+        <CalFirePerimetersLayer
+          geoJSON={calFireHistoricalPerimetersGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}
