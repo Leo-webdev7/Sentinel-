@@ -34,6 +34,7 @@ import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
+import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 
@@ -292,6 +293,11 @@ export default function LiveTrackerPage() {
     loading: calFireLoading,
     refresh: refreshCalFireIncidents,
   } = useCalFireIncidents(true, wildfireDataEnabled);
+
+  // CAL FIRE FRAP historical fire perimeters
+  const {
+    geoJSON: calFireHistoricalPerimetersGeoJSON,
+  } = useCalFirePerimeters(layers.calFireHistoricalPerimeters);
 
   const {
     geoJSON: aqiGeoJSON,
@@ -870,6 +876,7 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
+            calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
           <LayerControl
