@@ -93,7 +93,13 @@ export function AuthProvider({ children }) {
     } else {
       localStorage.removeItem(REMEMBER_ME_KEY);
     }
-    return supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    // Set a cookie marker so the ErrorBoundary can detect an authenticated
+    // session even if localStorage is inaccessible.
+    if (!result.error && result.data?.session) {
+      document.cookie = 'sentinel_auth=1; path=/; max-age=86400; SameSite=Lax';
+    }
+    return result;
   }, []);
 
   const signUp = useCallback(async (email, password, metadata = {}) => {
@@ -106,6 +112,7 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     localStorage.removeItem(REMEMBER_ME_KEY);
+    document.cookie = 'sentinel_auth=; path=/; max-age=0';
     return supabase.auth.signOut();
   }, []);
 

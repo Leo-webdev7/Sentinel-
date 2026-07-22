@@ -54,7 +54,16 @@ export default function LoginPage() {
 
       // Reporters who accidentally use the member login are redirected to their
       // dashboard; admins also go there. Regular users go to the live tracker.
-      const role = await fetchRole(data?.user?.id);
+      //
+      // fetchRole is wrapped in its own try/catch so that a profile-fetch
+      // failure does not block navigation after a successful authentication.
+      let role = 'public';
+      try {
+        role = await fetchRole(data?.user?.id) ?? 'public';
+      } catch (roleErr) {
+        console.warn('[LoginPage] fetchRole failed, defaulting to public:', roleErr);
+      }
+
       if (role === 'reporter' || role === 'admin') {
         navigate('/reporter-dashboard', { replace: true });
       } else {
@@ -69,6 +78,13 @@ export default function LoginPage() {
         setError(
           'Invalid credentials. If you just registered, please confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
         );
+      } else if (
+        msg.toLowerCase().includes('failed to fetch') ||
+        msg.toLowerCase().includes('networkerror') ||
+        msg.toLowerCase().includes('network request failed') ||
+        msg.toLowerCase().includes('load failed')
+      ) {
+        setError('Unable to connect. Please check your internet connection and try again.');
       } else {
         setError(msg || 'Authentication failed');
       }

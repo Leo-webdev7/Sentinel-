@@ -585,3 +585,311 @@ test.describe('LoginPage – Submit Button States', () => {
     ).toBeVisible();
   });
 });
+
+// ── Post-Login Error Resilience ──
+
+test.describe('LoginPage – Post-Login Error Resilience', () => {
+  async function mockSuccessfulAuth(
+    page: import('@playwright/test').Page,
+    userId: string,
+    userEmail: string,
+  ) {
+    await page.route('**/auth/v1/token**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'mock-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'mock-refresh-token',
+          user: { id: userId, email: userEmail, role: 'authenticated' },
+        }),
+      }),
+    );
+
+    await page.route('**/auth/v1/user**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: userId, email: userEmail, role: 'authenticated' }),
+      }),
+    );
+
+    await page.route('**/auth/v1/session**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'mock-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'mock-refresh-token',
+          user: { id: userId, email: userEmail, role: 'authenticated' },
+        }),
+      }),
+    );
+  }
+
+  test('reaches /sentinel when profiles endpoint returns 500 after auth', async ({ page }) => {
+    await page.goto(LOGIN_URL);
+    await mockSuccessfulAuth(page, 'user-err-1', 'profilefail@example.com');
+
+    // Mock profiles endpoint to return 500
+    await page.route('**/rest/v1/profiles**', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Internal server error' }),
+      }),
+    );
+
+    // Mock subscriptions endpoint to return empty
+    await page.route('**/rest/v1/subscriptions**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-profile': 'supabase', 'content-range': '0-0/1' },
+        body: JSON.stringify([]),
+      }),
+    );
+
+    await fillEmail(page, 'profilefail@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    // Should still reach sentinel (fallback to 'public' role), NOT the error boundary
+    await expect(page).toHaveURL(/\/sentinel/, { timeout: 10000 });
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+  });
+
+  test('reaches /sentinel when profiles endpoint times out after auth', async ({ page }) => {
+    await page.goto(LOGIN_URL);
+    await mockSuccessfulAuth(page, 'user-err-2', 'timeout@example.com');
+
+    // Mock profiles endpoint to hang (simulate timeout)
+    await page.route('**/rest/v1/profiles**', (route) =>
+      new Promise((resolve) =>
+        setTimeout(() => resolve(route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'content-profile': 'supabase', 'content-range': '0-0/1' },
+          body: JSON.stringify([{ id: 'user-err-2', role: 'public' }]),
+        })), 5000),
+      ),
+    );
+
+    await page.route('**/rest/v1/subscriptions**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-profile': 'supabase', 'content-range': '0-0/1' },
+        body: JSON.stringify([{ plan: 'free', status: 'active', cancel_at_period_end: false }]),
+      }),
+    );
+
+    await fillEmail(page, 'timeout@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    // Should reach sentinel — timeout should not crash the app
+    await expect(page).toHaveURL(/\/sentinel/, { timeout: 15000 });
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+  });
+
+  test('does not show ErrorBoundary after normal successful login', async ({ page }) => {
+    await page.goto(LOGIN_URL);
+    await mockSuccessfulAuth(page, 'user-ok-1', 'success@example.com');
+
+    await page.route('**/rest/v1/profiles**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-profile': 'supabase', 'content-range': '0-0/1' },
+        body: JSON.stringify([{ id: 'user-ok-1', role: 'public' }]),
+      }),
+    );
+
+    await page.route('**/rest/v1/subscriptions**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-profile': 'supabase', 'content-range': '0-0/1' },
+        body: JSON.stringify([{ plan: 'free', status: 'active', cancel_at_period_end: false }]),
+      }),
+    );
+
+    await fillEmail(page, 'success@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    await expect(page).toHaveURL(/\/sentinel/);
+    // Verify ErrorBoundary is NOT shown
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+    await expect(page.getByText('An unexpected error occurred')).not.toBeVisible();
+  });
+});
+
+// ── Inline Error Feedback (Auth Failures) ──
+
+test.describe('LoginPage – Inline Error Feedback', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(LOGIN_URL);
+  });
+
+  test('shows inline error (not ErrorBoundary) when auth returns 500', async ({ page }) => {
+    await page.route('**/auth/v1/token**', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'server_error',
+          error_description: 'Internal server error',
+        }),
+      }),
+    );
+
+    await fillEmail(page, 'user@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    // Inline error should appear on the login page
+    await expect(
+      page.locator('.bg-red-950\\/40, [class*="red"]').first(),
+    ).toBeVisible();
+    // ErrorBoundary should NOT trigger
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+    // User should still be on the login page
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('shows inline error when auth times out', async ({ page }) => {
+    // Simulate a timeout by delaying the response beyond a reasonable limit
+    await page.route('**/auth/v1/token**', (route) =>
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            route.fulfill({
+              status: 408,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                error: 'timeout',
+                error_description: 'Request timed out',
+              }),
+            }),
+          3000,
+        ),
+      ),
+    );
+
+    await fillEmail(page, 'user@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    // Should show inline error, not ErrorBoundary
+    await expect(
+      page.locator('.bg-red-950\\/40, [class*="red"]').first(),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('shows connectivity error when auth request is aborted (network error)', async ({ page }) => {
+    await page.route('**/auth/v1/token**', (route) =>
+      route.abort('connectionrefused'),
+    );
+
+    await fillEmail(page, 'user@example.com');
+    await fillPassword(page, 'password123');
+    await submitLoginForm(page);
+
+    // Should show network-specific inline error, not ErrorBoundary
+    await expect(
+      page.getByText(/unable to connect/i),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('stays on login page after auth failure (no redirect to sentinel)', async ({ page }) => {
+    await page.route('**/auth/v1/token**', (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'invalid_grant',
+          error_description: 'Invalid login credentials',
+        }),
+      }),
+    );
+
+    await fillEmail(page, 'bad@example.com');
+    await fillPassword(page, 'wrongpass');
+    await submitLoginForm(page);
+
+    await expect(page.getByText(/invalid credentials/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+  });
+});
+
+// ── Error Boundary Login-Aware Recovery ──
+
+test.describe('ErrorBoundary – Login-Aware Recovery', () => {
+  test('shows login-aware message when user has active session', async ({ page }) => {
+    // Set auth cookie before navigating — this persists across full-page navigations
+    await page.context().addCookies([{
+      name: 'sentinel_auth',
+      value: '1',
+      domain: 'localhost',
+      path: '/',
+    }]);
+
+    // Navigate to the error test page — this throws and triggers ErrorBoundary
+    await page.goto('/error-test');
+
+    // ErrorBoundary should detect the session and show login-aware message
+    await expect(
+      page.getByText(/your sign-in was successful/i),
+    ).toBeVisible({ timeout: 10000 });
+
+    // Should also show the heading
+    await expect(
+      page.getByRole('heading', { name: 'Something went wrong' }),
+    ).toBeVisible();
+  });
+
+  test('shows generic message when user has no session', async ({ page }) => {
+    // Ensure no sb- auth tokens exist (don't set any)
+    await page.goto('/error-test');
+
+    // ErrorBoundary should show generic message (no session detected)
+    await expect(
+      page.getByText(/an unexpected error occurred/i),
+    ).toBeVisible({ timeout: 10000 });
+
+    // Should NOT show login-aware message
+    await expect(
+      page.getByText(/your sign-in was successful/i),
+    ).not.toBeVisible();
+  });
+
+  test('ErrorBoundary recovery navigates to /sentinel', async ({ page }) => {
+    // Set auth cookie
+    await page.context().addCookies([{
+      name: 'sentinel_auth',
+      value: '1',
+      domain: 'localhost',
+      path: '/',
+    }]);
+
+    // Trigger ErrorBoundary
+    await page.goto('/error-test');
+    await expect(
+      page.getByRole('heading', { name: 'Something went wrong' }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // Click "Go to Live Map" — should navigate to /sentinel
+    await page.getByRole('button', { name: /go to live map/i }).click();
+    await expect(page).toHaveURL(/\/sentinel/);
+  });
+});
