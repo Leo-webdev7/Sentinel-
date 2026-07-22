@@ -27,6 +27,7 @@ const ReporterDashboardPage = lazy(() => import('./pages/ReporterDashboardPage')
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const ErrorTestPage = lazy(() => import('./pages/ErrorTestPage'));
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -136,6 +137,9 @@ export default function App() {
 
           {/* Full-screen live tracker (no Navbar/Footer) */}
           <Route path="/sentinel" element={<LiveTrackerPage />} />
+
+          {/* Test-only route for ErrorBoundary e2e testing */}
+          <Route path="/error-test" element={<ErrorTestPage />} />
 
           {/* Catch-all: redirect unknown routes to home instead of black screen */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -50,8 +50,17 @@ export function useSavedLocations() {
 
     load();
 
-    // Realtime subscription for cross-tab/device sync
-    channelRef.current = supabase
+    // Clean up any existing channels for this user before creating a new one.
+    // Supabase's realtime client can throw "cannot add postgres_changes
+    // callbacks after subscribe()" if a stale channel lingers in its registry.
+    const existingChannels = supabase.getChannels?.() ?? [];
+    for (const ch of existingChannels) {
+      if (ch.topic?.startsWith(`realtime:saved_locations:${user?.id}`)) {
+        supabase.removeChannel(ch);
+      }
+    }
+
+    const channel = supabase
       .channel(`saved_locations:${user?.id}`)
       .on(
         'postgres_changes',
@@ -59,12 +68,13 @@ export function useSavedLocations() {
         () => load()
       )
       .subscribe();
+    channelRef.current = channel;
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (channel) {
+        supabase.removeChannel(channel);
       }
+      channelRef.current = null;
     };
   }, [isAuthenticated, user?.id, load]);
 
